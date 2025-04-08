@@ -1,2 +1,24 @@
+# バイナリ
+/app
+main
+*.exe
+*.out
+
+# Go関連
 vendor/
+*.test
+
+# エディタ・IDE
+.vscode/
+.idea/
+
+# OSファイル
+.DS_Store
+Thumbs.db
+
+# dotenv
 .env
+.env.*
+
+# Docker関連
+**/.container_env*
