@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <html lang="ja">
+    <title>ユーザー一覧</title>
+</head>
+<body>
+  <h1>登録ユーザー一覧</h1>
+  <ul>
+    {{ range .Users }}
+      <li>{{ .Name }} - {{ .Email }}</li>
+    {{ else }}
+      <li>ユーザーがいません</li>
+    {{ end }}
+  </ul>
+</body>
+</html>

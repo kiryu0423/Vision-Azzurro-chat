@@ -22,3 +22,7 @@ Thumbs.db
 
 # Docker関連
 **/.container_env*
+
+# テスト用一時ファイル
+cookie.txt
+*.log

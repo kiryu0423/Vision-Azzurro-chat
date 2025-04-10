@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ログイン</title>
+</head>
+<body>
+  <h1>ログインページ</h1>
+
+  <form id="loginForm">
+    <label for="email">メールアドレス:</label><br>
+    <input type="email" id="email" name="email" required><br>
+
+    <label for="password">パスワード:</label><br>
+    <input type="password" id="password" name="password" required><br>
+
+    <button type="submit">ログイン</button>
+  </form>
+
+  <p id="error" style="color:red;"></p>
+
+  <script>
+    const form = document.getElementById("loginForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const res = await fetch("/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",  // ← Cookieにセッション情報を保持
+        body: JSON.stringify({ email, password })
+      });
+
+      if (res.ok) {
+        window.location.href = "/ws-test";
+      } else {
+        const data = await res.json();
+        document.getElementById("error").textContent = data.error || "ログイン失敗";
+      }
+    });
+  </script>
+</body>
+</html>
