@@ -35,9 +35,12 @@ func main() {
 	authRepo := repository.NewUserRepository(db)
 	authService := service.NewAuthService(authRepo)
 	authHandler := handler.NewAuthHandler(authService)
+	roomRepo := repository.NewRoomRepository(db)
+	roomService := service.NewRoomService(roomRepo)
+	roomHandler := handler.NewRoomHandler(roomService)
 	msgRepo := repository.NewMessageRepository(db)
-	msgHandler := handler.NewMessageHandler(msgRepo)
-	wsHandler := handler.NewWebSocketHandler(msgRepo)
+	msgHandler := handler.NewMessageHandler(msgRepo, roomService)
+	wsHandler := handler.NewWebSocketHandler(msgRepo, roomService)
 
 	r := gin.Default()
 
@@ -90,7 +93,26 @@ func main() {
 		c.HTML(http.StatusOK, "ws.html", nil)
 	})
 
+	r.GET("/chat/:room_id", func(c *gin.Context) {
+		session := sessions.Default(c)
+		userName := session.Get("user_name")
+		if userName == nil {
+			c.Redirect(http.StatusFound, "/login-page")
+			return
+		}
+	
+		roomID := c.Param("room_id")
+		c.HTML(http.StatusOK, "ws.html", gin.H{
+			"RoomID":   roomID,
+			"UserName": userName,
+		})
+	})
+
+	// ルームIDで履歴取得
 	r.GET("/messages/:room_id", msgHandler.GetMessages)
+
+	// ルーム作成
+	r.POST("/rooms", roomHandler.CreateRoom)
 
 
 	r.Run(":" + os.Getenv("PORT"))

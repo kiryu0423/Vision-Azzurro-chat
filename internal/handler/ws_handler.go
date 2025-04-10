@@ -3,6 +3,7 @@ package handler
 import (
 	"chat-app/internal/model"
 	"chat-app/internal/repository"
+	"chat-app/internal/service"
 	"fmt"
 	"net/http"
 	"sync"
@@ -20,23 +21,33 @@ var upgrader = websocket.Upgrader {
     },
 }
 
-// 全体チャットのための変数
-var clients = make(map[*websocket.Conn]string) // conn → ユーザー名
-var clientsMu sync.Mutex
+var roomClients = make(map[string]map[*websocket.Conn]string)
+var roomClientsMu sync.Mutex
 
 type WebSocketHandler struct {
     MessageRepo *repository.MessageRepository
+    RoomService *service.RoomService
 }
 
-func NewWebSocketHandler(repo *repository.MessageRepository) *WebSocketHandler {
-    return &WebSocketHandler{MessageRepo: repo}
+func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService *service.RoomService) *WebSocketHandler {
+    return &WebSocketHandler{
+        MessageRepo: messageRepo,
+        RoomService: roomService,
+    }
 }
 
 func (h *WebSocketHandler) Handle(c *gin.Context) {
     session := sessions.Default(c)
     userID := session.Get("user_id")
+    roomID := c.Query("room")
     userName := session.Get("user_name")
-    if userID == nil || userName == nil {
+
+    if err := h.RoomService.AuthorizeUser(userID.(uint), roomID); err != nil {
+        c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+        return
+    }
+
+    if userID == nil || roomID == "" || userName == nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
         return
     }
@@ -47,16 +58,22 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
         return
     }
 
-	clientsMu.Lock()
-	clients[conn] = userName.(string)
-	clientsMu.Unlock()
+	roomClientsMu.Lock()
+    if roomClients[roomID] == nil {
+        roomClients[roomID] = make(map[*websocket.Conn]string)
+    }
+    roomClients[roomID][conn] = userName.(string)
+    roomClientsMu.Unlock()
 
 	defer func() {
-		clientsMu.Lock()
-		delete(clients, conn)
-		clientsMu.Unlock()
-		conn.Close()
-	}()
+        roomClientsMu.Lock()
+        delete(roomClients[roomID], conn)
+        if len(roomClients[roomID]) == 0 {
+            delete(roomClients, roomID)
+        }
+        roomClientsMu.Unlock()
+        conn.Close()
+    }()
 
     for {
         _, msgBytes, err := conn.ReadMessage()
@@ -68,7 +85,7 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
         fullMessage := fmt.Sprintf("%s: %s", userName, string(msgBytes))
 
 		msg := &model.Message{
-            RoomID:  "global",
+            RoomID:  roomID,
             Sender:  userName.(string),
             Content: string(msgBytes),
         }
@@ -77,14 +94,13 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
         }
 		
 
-		clientsMu.Lock()
-		for c := range clients {
-			if err := c.WriteMessage(websocket.TextMessage, []byte(fullMessage)); err != nil {
-				c.Close()
-				delete(clients, c)
-			}
-		}
-
-		clientsMu.Unlock()
+		roomClientsMu.Lock()
+        for c := range roomClients[roomID] {
+            if err := c.WriteMessage(websocket.TextMessage, []byte(fullMessage)); err != nil {
+                c.Close()
+                delete(roomClients[roomID], c)
+            }
+        }
+        roomClientsMu.Unlock()
     }
 }

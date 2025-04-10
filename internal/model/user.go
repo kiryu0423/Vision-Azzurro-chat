@@ -3,11 +3,10 @@ package model
 import "time"
 
 type User struct {
-	ID			uint	`gorm:"primaryKey"`
+	ID			uint
 	Name		string
-	Email		string	`gorm:"unique"`
+	Email		string
 	Password	string
 	CreatedAt	time.Time
 	UpdatedAt	time.Time
 }
-

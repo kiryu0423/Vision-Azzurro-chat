@@ -5,6 +5,7 @@
   <title>チャットルーム</title>
 </head>
 <body>
+  <button onclick="logout()">ログアウト</button>
   <h1>チャットルーム（全体）</h1>
 
   <input type="text" id="messageInput" placeholder="メッセージを入力">
@@ -28,7 +29,8 @@
     }
 
     // 🟡 WebSocket接続
-    const socket = new WebSocket("ws://localhost:8081/ws");
+    const roomID = "{{.RoomID}}";
+    const socket = new WebSocket("ws://localhost:8081/ws?room=" + roomID);
 
     socket.onmessage = (event) => {
       const li = document.createElement("li");
@@ -47,6 +49,15 @@
     window.onload = () => {
       loadHistory();
     };
+
+    function logout() {
+      fetch("/logout", {
+        method: "POST",
+        credentials: "include"
+      }).then(() => {
+        window.location.href = "/login-page";
+      });
+    }
   </script>
 </body>
 </html>
