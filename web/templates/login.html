@@ -37,7 +37,7 @@
       });
 
       if (res.ok) {
-        window.location.href = "/ws-test";
+        window.location.href = "/chat";
       } else {
         const data = await res.json();
         document.getElementById("error").textContent = data.error || "ログイン失敗";

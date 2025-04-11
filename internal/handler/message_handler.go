@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"chat-app/internal/model"
 	"chat-app/internal/repository"
 	"chat-app/internal/service"
 	"net/http"
@@ -36,6 +37,10 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to messages"})
 		return
+	}
+
+	if messages == nil {
+		messages = []model.Message{}
 	}
 
 	c.JSON(http.StatusOK, messages)

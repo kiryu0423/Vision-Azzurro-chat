@@ -38,3 +38,6 @@ func (s *RoomService) CreateRoomIfNotExists(userAID, userBID uint) (string, erro
     return newRoom.ID, nil
 }
 
+func (s *RoomService) GetRoomsForUser(userID uint) ([]repository.RoomListItem, error) {
+	return s.Repo.GetRoomByUser(userID)
+}

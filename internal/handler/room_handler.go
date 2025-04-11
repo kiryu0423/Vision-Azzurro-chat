@@ -38,3 +38,15 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 
     c.JSON(http.StatusOK, gin.H{"room_id": roomID})
 }
+
+func (h *RoomHandler) ListRooms(c *gin.Context) {
+    session := sessions.Default(c)
+    userID := session.Get("user_id").(uint)
+
+    rooms, err := h.RoomService.GetRoomsForUser(userID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch rooms"})
+    }
+
+    c.JSON(http.StatusOK, rooms)
+}

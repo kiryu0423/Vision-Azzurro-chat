@@ -14,6 +14,11 @@ func NewRoomRepository(db *gorm.DB) *RoomRepository {
     return &RoomRepository{DB: db}
 }
 
+type RoomListItem struct {
+    RoomID        string `json:"room_id"`
+    OtherUserName string `json:"other_user_name"`
+}
+
 func (r *RoomRepository) InUserInRoom(userID uint, roomID string) (bool, error) {
 	var count int64
 	err := r.DB.
@@ -47,18 +52,40 @@ func (r *RoomRepository) CreateRoomWithUsers(userIDs []uint) (*model.Room, error
     }
 
     if err := r.DB.Exec(`
-        INSERT INTO rooms (id, is_group) VALUES (?, false)
+        INSERT INTO rooms (id, is_group) 
+        VALUES (?, false) 
+        ON CONFLICT (id) DO NOTHING
     `, room.ID).Error; err != nil {
         return nil, err
     }
 
     for _, uid := range userIDs {
         if err := r.DB.Exec(`
-            INSERT INTO room_members (room_id, user_id) VALUES (?, ?)
+            INSERT INTO room_members (room_id, user_id) 
+            VALUES (?, ?) 
+            ON CONFLICT DO NOTHING
         `, room.ID, uid).Error; err != nil {
             return nil, err
         }
     }
 
     return room, nil
+}
+
+func (r *RoomRepository) GetRoomByUser(userID uint) ([]RoomListItem, error) {
+    var rooms []RoomListItem
+    err := r.DB.Raw(`
+        SELECT r.id AS room_id, u.name AS other_user_name
+        FROM room_members rm
+        JOIN rooms r ON rm.room_id = r.id
+        JOIN room_members other_rm ON r.id = other_rm.room_id AND other_rm.user_id != ?
+        JOIN users u ON u.id = other_rm.user_id
+        WHERE rm.user_id = ? 
+        AND r.is_group = false
+        AND EXISTS (
+            SELECT 1 FROM messages m WHERE m.room_id = r.id
+        );
+    `, userID, userID).Scan(&rooms).Error
+
+    return rooms, err
 }

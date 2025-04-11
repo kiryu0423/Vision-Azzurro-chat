@@ -30,8 +30,9 @@ func main() {
 		panic("failed to connect to DB")
 	}
 
-	userRepo := &repository.UserRepository{DB: db}
-	userHandler := &handler.UserHandler{UserRepository: userRepo}
+	userRepo := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepo)
+	userHandler := handler.NewUserHandler(userService)
 	authRepo := repository.NewUserRepository(db)
 	authService := service.NewAuthService(authRepo)
 	authHandler := handler.NewAuthHandler(authService)
@@ -54,11 +55,8 @@ func main() {
 		c.HTML(200, "index.html", nil)
 	})
 
-	// ユーザー一覧を表示
-	r.GET("/users", userHandler.GetAllUser)
-	// ユーザーをIDで取得
-	r.GET("/user/:id", userHandler.GetUserByID)
-
+	// ユーザー一覧を取得
+	r.GET("/users", userHandler.ListUsers)
 	// ユーザーページの表示
 	r.GET("/mypage", middleware.RequireLogin(), func(c *gin.Context) {
 		session := sessions.Default(c)
@@ -88,11 +86,8 @@ func main() {
 
 	// websocket接続
 	r.GET("/ws", wsHandler.Handle)
-	// チャット確認ページ
-	r.GET("/ws-test", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "ws.html", nil)
-	})
 
+	// ルームに入る
 	r.GET("/chat/:room_id", func(c *gin.Context) {
 		session := sessions.Default(c)
 		userName := session.Get("user_name")
@@ -113,6 +108,21 @@ func main() {
 
 	// ルーム作成
 	r.POST("/rooms", roomHandler.CreateRoom)
+
+	// ルーム一覧の取得
+	r.GET("/rooms", roomHandler.ListRooms)
+
+
+	// チャットトップページ
+	r.GET("/chat", func(c *gin.Context) {
+		session := sessions.Default(c)
+		if session.Get("user_id") == nil {
+			c.Redirect(http.StatusFound, "/login-page")
+			return
+		}
+		c.HTML(http.StatusOK, "chat.html", nil)
+	})
+	
 
 
 	r.Run(":" + os.Getenv("PORT"))
