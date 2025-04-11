@@ -2,7 +2,10 @@ package repository
 
 import (
 	"chat-app/internal/model"
+	"errors"
 
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -15,11 +18,11 @@ func NewRoomRepository(db *gorm.DB) *RoomRepository {
 }
 
 type RoomListItem struct {
-    RoomID        string `json:"room_id"`
-    OtherUserName string `json:"other_user_name"`
+    RoomID      uuid.UUID   `json:"room_id"`
+    MemberNames pq.StringArray `json:"member_names"`  // <- 複数対応
 }
 
-func (r *RoomRepository) InUserInRoom(userID uint, roomID string) (bool, error) {
+func (r *RoomRepository) InUserInRoom(userID uint, roomID uuid.UUID) (bool, error) {
 	var count int64
 	err := r.DB.
 		Table("room_members").
@@ -39,53 +42,61 @@ func (r *RoomRepository) FindRoomByUsers(userAID, userBID uint) (*model.Room, er
         LIMIT 1
     `, userAID, userBID).Scan(&room).Error
 
-    if err != nil || room.ID == "" {
+    if err != nil || room.ID == uuid.Nil {
         return nil, err
     }
     return &room, nil
 }
 
-func (r *RoomRepository) CreateRoomWithUsers(userIDs []uint) (*model.Room, error) {
-    room := &model.Room{}
-    if err := r.DB.Raw(`SELECT gen_random_uuid()`).Scan(&room.ID).Error; err != nil {
-        return nil, err
-    }
+func (r *RoomRepository) FindGroupRoomByName(name string) (*model.Room, error) {
+    var room model.Room
+    err := r.DB.
+        Where("is_group = ? AND name = ?", true, name).
+        First(&room).Error
 
-    if err := r.DB.Exec(`
-        INSERT INTO rooms (id, is_group) 
-        VALUES (?, false) 
-        ON CONFLICT (id) DO NOTHING
-    `, room.ID).Error; err != nil {
-        return nil, err
+    if errors.Is(err, gorm.ErrRecordNotFound) {
+        return nil, nil
     }
-
-    for _, uid := range userIDs {
-        if err := r.DB.Exec(`
-            INSERT INTO room_members (room_id, user_id) 
-            VALUES (?, ?) 
-            ON CONFLICT DO NOTHING
-        `, room.ID, uid).Error; err != nil {
-            return nil, err
-        }
-    }
-
-    return room, nil
+    return &room, err
 }
+
+func (r *RoomRepository) CreateRoom(room *model.Room, userIDs []uint) error {
+    // トランザクションでまとめて処理
+    return r.DB.Transaction(func(tx *gorm.DB) error {
+        // rooms テーブルに挿入
+        if err := tx.Create(room).Error; err != nil {
+            return err
+        }
+
+        // room_members に全メンバー登録
+        var members []model.RoomMember
+        for _, uid := range userIDs {
+            members = append(members, model.RoomMember{
+                RoomID: room.ID,
+                UserID: uid,
+            })
+        }
+
+        if err := tx.Create(&members).Error; err != nil {
+            return err
+        }
+
+        return nil
+    })
+}
+
 
 func (r *RoomRepository) GetRoomByUser(userID uint) ([]RoomListItem, error) {
     var rooms []RoomListItem
     err := r.DB.Raw(`
-        SELECT r.id AS room_id, u.name AS other_user_name
-        FROM room_members rm
-        JOIN rooms r ON rm.room_id = r.id
-        JOIN room_members other_rm ON r.id = other_rm.room_id AND other_rm.user_id != ?
-        JOIN users u ON u.id = other_rm.user_id
-        WHERE rm.user_id = ? 
-        AND r.is_group = false
-        AND EXISTS (
-            SELECT 1 FROM messages m WHERE m.room_id = r.id
+        SELECT DISTINCT r.id AS room_id
+        FROM rooms r
+        JOIN room_members rm ON r.id = rm.room_id
+        WHERE rm.user_id = ?
+        AND r.id IN (
+            SELECT room_id FROM messages
         );
-    `, userID, userID).Scan(&rooms).Error
+    `, userID).Scan(&rooms).Error
 
     return rooms, err
 }

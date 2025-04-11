@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -39,7 +40,8 @@ func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService 
 func (h *WebSocketHandler) Handle(c *gin.Context) {
     session := sessions.Default(c)
     userID := session.Get("user_id")
-    roomID := c.Query("room")
+    roomIDStr := c.Query("room")
+    roomID,_ := uuid.Parse(roomIDStr)
     userName := session.Get("user_name")
 
     if err := h.RoomService.AuthorizeUser(userID.(uint), roomID); err != nil {
@@ -47,7 +49,7 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
         return
     }
 
-    if userID == nil || roomID == "" || userName == nil {
+    if userID == nil || roomIDStr == "" || userName == nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
         return
     }
@@ -59,17 +61,17 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
     }
 
 	roomClientsMu.Lock()
-    if roomClients[roomID] == nil {
-        roomClients[roomID] = make(map[*websocket.Conn]string)
+    if roomClients[roomIDStr] == nil {
+        roomClients[roomIDStr] = make(map[*websocket.Conn]string)
     }
-    roomClients[roomID][conn] = userName.(string)
+    roomClients[roomIDStr][conn] = userName.(string)
     roomClientsMu.Unlock()
 
 	defer func() {
         roomClientsMu.Lock()
-        delete(roomClients[roomID], conn)
-        if len(roomClients[roomID]) == 0 {
-            delete(roomClients, roomID)
+        delete(roomClients[roomIDStr], conn)
+        if len(roomClients[roomIDStr]) == 0 {
+            delete(roomClients, roomIDStr)
         }
         roomClientsMu.Unlock()
         conn.Close()
@@ -95,10 +97,10 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
 		
 
 		roomClientsMu.Lock()
-        for c := range roomClients[roomID] {
+        for c := range roomClients[roomIDStr] {
             if err := c.WriteMessage(websocket.TextMessage, []byte(fullMessage)); err != nil {
                 c.Close()
-                delete(roomClients[roomID], c)
+                delete(roomClients[roomIDStr], c)
             }
         }
         roomClientsMu.Unlock()

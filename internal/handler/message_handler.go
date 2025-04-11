@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 
@@ -26,9 +27,10 @@ func NewMessageHandler(messageRepo *repository.MessageRepository, roomService *s
 func (h *MessageHandler) GetMessages(c *gin.Context) {
 	session := sessions.Default(c)
     userID := session.Get("user_id").(uint)
-    roomID := c.Param("room_id")
+    roomIDStr := c.Param("room_id")
+	roomID,_ := uuid.Parse(roomIDStr)
 
-    if err := h.RoomService.AuthorizeUser(userID, roomID); err != nil {
+    if err := h.RoomService.AuthorizeUser(userID, roomIDStr); err != nil {
         c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
         return
     }

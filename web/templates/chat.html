@@ -41,10 +41,10 @@
 
       rooms.forEach(room => {
         const li = document.createElement("li");
-        li.textContent = room.other_user_name;
+        li.textContent = room.member_names.join(", ");
         li.style.cursor = "pointer";
         li.onclick = () => {
-          joinRoom(room.room_id, room.other_user_name);
+          joinRoom(room.room_id, room.member_names);
         };
         roomList.appendChild(li);
       });

@@ -1,7 +1,0 @@
-CREATE TABLE messages (
-  id SERIAL PRIMARY KEY,
-  room_id TEXT NOT NULL,
-  sender TEXT NOT NULL,
-  content TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);

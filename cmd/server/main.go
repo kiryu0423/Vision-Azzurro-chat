@@ -31,14 +31,14 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(db, userRepo)
 	userHandler := handler.NewUserHandler(userService)
 	authRepo := repository.NewUserRepository(db)
 	authService := service.NewAuthService(authRepo)
 	authHandler := handler.NewAuthHandler(authService)
 	roomRepo := repository.NewRoomRepository(db)
 	roomService := service.NewRoomService(roomRepo)
-	roomHandler := handler.NewRoomHandler(roomService)
+	roomHandler := handler.NewRoomHandler(roomService, userService)
 	msgRepo := repository.NewMessageRepository(db)
 	msgHandler := handler.NewMessageHandler(msgRepo, roomService)
 	wsHandler := handler.NewWebSocketHandler(msgRepo, roomService)
