@@ -41,7 +41,7 @@
 
       rooms.forEach(room => {
         const li = document.createElement("li");
-        li.textContent = room.member_names.join(", ");
+        li.textContent = room.display_name || "未設定ルーム名";
         li.style.cursor = "pointer";
         li.onclick = () => {
           joinRoom(room.room_id, room.member_names);
@@ -98,7 +98,12 @@
         const li = document.createElement("li");
 
         const time = new Date(msg.created_at);
-        const hhmm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+        const hhmm = now.toLocaleTimeString('ja-JP', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Tokyo'
+        });
 
         li.textContent = `[${hhmm}] ${msg.sender}: ${msg.content}`;
         chatLog.appendChild(li);

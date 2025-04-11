@@ -17,21 +17,10 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
     return &AuthHandler{AuthService: authService}
 }
 
-type RegisterRequest struct {
-    Name     string `json:"name" binding:"required"`
-    Email    string `json:"email" binding:"required,email"`
-    Password string `json:"password" binding:"required,min=8"`
-}
-
-type LoginRequest struct {
-    Email    string `json:"email" binding:"required,email"`
-    Password string `json:"password" binding:"required,min=8"`
-}
-
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-    	c.JSON(http.StatusBadRequest, gin.H{"error": "validation failed"})
+	if err := c.ShouldBind(&req); err != nil {
+    	c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
     	return
 	}
 

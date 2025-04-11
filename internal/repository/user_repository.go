@@ -36,3 +36,11 @@ func (r *UserRepository) GetAllExcept(userID uint) ([]model.User, error) {
 	err := r.DB.Where("id != ?", userID).Find(&users).Error
 	return users, err
 }
+
+func (r *UserRepository) GetUsersByIDs(ids []uint) ([]model.User, error) {
+    var users []model.User
+    if err := r.DB.Where("id IN ?", ids).Find(&users).Error; err != nil {
+        return nil, err
+    }
+    return users, nil
+}

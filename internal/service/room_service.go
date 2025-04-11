@@ -13,15 +13,19 @@ import (
 )
 
 type RoomService struct {
-	Repo *repository.RoomRepository
+	rRepo *repository.RoomRepository
+    uRepo *repository.UserRepository
 }
 
-func NewRoomService(repo *repository.RoomRepository) *RoomService {
-	return &RoomService{Repo: repo}
+func NewRoomService(roomRepo *repository.RoomRepository, userRepo *repository.UserRepository) *RoomService {
+	return &RoomService{
+        rRepo: roomRepo,
+        uRepo: userRepo,
+    }
 }
 
 func (s *RoomService) AuthorizeUser(userID uint, roomID uuid.UUID) error {
-	ok, err := s.Repo.InUserInRoom(userID, roomID)
+	ok, err := s.rRepo.InUserInRoom(userID, roomID)
 	if err != nil {
 		return err
 	}
@@ -32,7 +36,7 @@ func (s *RoomService) AuthorizeUser(userID uint, roomID uuid.UUID) error {
 }
 
 func (s *RoomService) CreateOneToOneRoomIfNotExists(userAID, userBID uint) (uuid.UUID, error) {
-    existing, err := s.Repo.FindRoomByUsers(userAID, userBID)
+    existing, err := s.rRepo.FindRoomByUsers(userAID, userBID)
     if err != nil {
         return uuid.Nil, err
     }
@@ -40,13 +44,31 @@ func (s *RoomService) CreateOneToOneRoomIfNotExists(userAID, userBID uint) (uuid
         return existing.ID, nil
     }
 
-    room := &model.Room{
-        ID:        uuid.New(),
-        IsGroup:   false,
-        CreatedAt: time.Now(),
+    // 両ユーザー名を取得
+    users, err := s.uRepo.GetUsersByIDs([]uint{userAID, userBID})
+    if err != nil || len(users) < 2 {
+        return uuid.Nil, errors.New("failed to get user names")
     }
 
-    if err := s.Repo.CreateRoom(room, []uint{userAID, userBID}); err != nil {
+    // 表示名作成（昇順で安定化）
+    sort.Slice(users, func(i, j int) bool { return users[i].Name < users[j].Name })
+    var nameParts []string
+    for _, u := range users {
+        nameParts = append(nameParts, u.Name)
+    }
+
+    displayName := strings.Join(nameParts, ", ")
+    groupKey := "oneonone_" + GenerateGroupNameFromUserIDs([]uint{userAID, userBID})
+
+    room := &model.Room{
+        ID:          uuid.New(),
+        IsGroup:     false,
+        Name:        groupKey,      // 内部識別キー
+        DisplayName: displayName,   // 表示用（A, B）
+        CreatedAt:   time.Now(),
+    }
+
+    if err := s.rRepo.CreateRoom(room, []uint{userAID, userBID}); err != nil {
         return uuid.Nil, err
     }
 
@@ -60,7 +82,7 @@ func (s *RoomService) CreateGroupRoomIfNotExists(creatorID uint, userIDs []uint,
     groupKey := GenerateGroupNameFromUserIDs(allUserIDs)
 
     // nameによる検索（高速で確実）
-    existing, err := s.Repo.FindGroupRoomByName(groupKey)
+    existing, err := s.rRepo.FindGroupRoomByName(groupKey)
     if err != nil {
         return uuid.Nil, err
     }
@@ -76,7 +98,7 @@ func (s *RoomService) CreateGroupRoomIfNotExists(creatorID uint, userIDs []uint,
         CreatedAt:   time.Now(),
     }
 
-    if err := s.Repo.CreateRoom(room, allUserIDs); err != nil {
+    if err := s.rRepo.CreateRoom(room, allUserIDs); err != nil {
         return uuid.Nil, err
     }
 
@@ -85,7 +107,7 @@ func (s *RoomService) CreateGroupRoomIfNotExists(creatorID uint, userIDs []uint,
 
 
 func (s *RoomService) GetRoomsForUser(userID uint) ([]repository.RoomListItem, error) {
-    return s.Repo.GetRoomByUser(userID)
+    return s.rRepo.GetRoomByUser(userID)
 }
 
 func GenerateGroupNameFromUserIDs(userIDs []uint) string {

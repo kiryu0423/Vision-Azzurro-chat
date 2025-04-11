@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -18,8 +17,8 @@ func NewRoomRepository(db *gorm.DB) *RoomRepository {
 }
 
 type RoomListItem struct {
-    RoomID      uuid.UUID   `json:"room_id"`
-    MemberNames pq.StringArray `json:"member_names"`  // <- 複数対応
+    RoomID      uuid.UUID `json:"room_id"`
+    DisplayName string    `json:"display_name"`
 }
 
 func (r *RoomRepository) InUserInRoom(userID uint, roomID uuid.UUID) (bool, error) {
@@ -91,17 +90,16 @@ func (r *RoomRepository) GetRoomByUser(userID uint) ([]RoomListItem, error) {
     err := r.DB.Raw(`
         SELECT 
             r.id AS room_id,
-            ARRAY_AGG(u.name ORDER BY u.name) AS member_names
+            r.display_name
         FROM rooms r
         JOIN room_members rm ON r.id = rm.room_id
-        JOIN users u ON rm.user_id = u.id
         WHERE r.id IN (
             SELECT room_id FROM room_members WHERE user_id = ?
         )
         AND EXISTS (
             SELECT 1 FROM messages m WHERE m.room_id = r.id
         )
-        GROUP BY r.id;
+        GROUP BY r.id, r.display_name;
     `, userID).Scan(&rooms).Error
 
     return rooms, err

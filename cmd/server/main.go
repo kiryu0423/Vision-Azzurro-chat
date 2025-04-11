@@ -4,7 +4,6 @@ import (
 	"chat-app/internal/handler"
 	"chat-app/internal/repository"
 	"chat-app/internal/service"
-	"chat-app/internal/middleware"
 	"net/http"
 	"os"
 
@@ -32,12 +31,11 @@ func main() {
 
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(db, userRepo)
-	userHandler := handler.NewUserHandler(userService)
 	authRepo := repository.NewUserRepository(db)
 	authService := service.NewAuthService(authRepo)
 	authHandler := handler.NewAuthHandler(authService)
 	roomRepo := repository.NewRoomRepository(db)
-	roomService := service.NewRoomService(roomRepo)
+	roomService := service.NewRoomService(roomRepo, userRepo)
 	roomHandler := handler.NewRoomHandler(roomService, userService)
 	msgRepo := repository.NewMessageRepository(db)
 	msgHandler := handler.NewMessageHandler(msgRepo, roomService)
@@ -50,23 +48,6 @@ func main() {
     r.Use(sessions.Sessions("chat_session", store))
 
 	r.LoadHTMLGlob("web/templates/*")
-
-	r.GET("/", func(c *gin.Context) {
-		c.HTML(200, "index.html", nil)
-	})
-
-	// ユーザー一覧を取得
-	r.GET("/users", userHandler.ListUsers)
-	// ユーザーページの表示
-	r.GET("/mypage", middleware.RequireLogin(), func(c *gin.Context) {
-		session := sessions.Default(c)
-		userID := session.Get("user_id")
-	
-		c.JSON(http.StatusOK, gin.H{
-			"message":  "You are logged in!",
-			"user_id":  userID,
-		})
-	})
 
 	// ユーザー登録
 	r.POST("/register", authHandler.Register)

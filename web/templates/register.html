@@ -26,26 +26,26 @@
     const form = document.getElementById("registerForm");
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-
+    
       const name = document.getElementById("name").value;
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
-
+    
       const res = await fetch("/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify({ name, email, password })  // ✅ 正しく文字列化
       });
-
+    
       if (res.ok) {
         window.location.href = "/login-page";
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({ error: "登録失敗（レスポンスがJSONでない）" }));
         document.getElementById("error").textContent = data.error || "登録失敗";
       }
     });
-  </script>
+    </script>
 </body>
 </html>
