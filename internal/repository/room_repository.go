@@ -44,7 +44,7 @@ func (r *RoomRepository) FindRoomByUsers(userAID, userBID uint) (*model.Room, er
 
     if err != nil || room.ID == uuid.Nil {
         return nil, err
-    }
+    }    
     return &room, nil
 }
 
@@ -85,17 +85,23 @@ func (r *RoomRepository) CreateRoom(room *model.Room, userIDs []uint) error {
     })
 }
 
-
+// 作成済のルーム取得
 func (r *RoomRepository) GetRoomByUser(userID uint) ([]RoomListItem, error) {
     var rooms []RoomListItem
     err := r.DB.Raw(`
-        SELECT DISTINCT r.id AS room_id
+        SELECT 
+            r.id AS room_id,
+            ARRAY_AGG(u.name ORDER BY u.name) AS member_names
         FROM rooms r
         JOIN room_members rm ON r.id = rm.room_id
-        WHERE rm.user_id = ?
-        AND r.id IN (
-            SELECT room_id FROM messages
-        );
+        JOIN users u ON rm.user_id = u.id
+        WHERE r.id IN (
+            SELECT room_id FROM room_members WHERE user_id = ?
+        )
+        AND EXISTS (
+            SELECT 1 FROM messages m WHERE m.room_id = r.id
+        )
+        GROUP BY r.id;
     `, userID).Scan(&rooms).Error
 
     return rooms, err

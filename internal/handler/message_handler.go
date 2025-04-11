@@ -26,18 +26,23 @@ func NewMessageHandler(messageRepo *repository.MessageRepository, roomService *s
 
 func (h *MessageHandler) GetMessages(c *gin.Context) {
 	session := sessions.Default(c)
-    userID := session.Get("user_id").(uint)
-    roomIDStr := c.Param("room_id")
-	roomID,_ := uuid.Parse(roomIDStr)
+	userID := session.Get("user_id").(uint)
 
-    if err := h.RoomService.AuthorizeUser(userID, roomIDStr); err != nil {
-        c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
-        return
-    }
+	roomIDStr := c.Param("room_id")
+	roomID, err := uuid.Parse(roomIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room_id"})
+		return
+	}
+
+	if err := h.RoomService.AuthorizeUser(userID, roomID); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
 
 	messages, err := h.MessageRepo.GetMessagesByRoom(roomID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to messages"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch messages"})
 		return
 	}
 

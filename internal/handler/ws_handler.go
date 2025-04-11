@@ -40,17 +40,22 @@ func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService 
 func (h *WebSocketHandler) Handle(c *gin.Context) {
     session := sessions.Default(c)
     userID := session.Get("user_id")
-    roomIDStr := c.Query("room")
-    roomID,_ := uuid.Parse(roomIDStr)
     userName := session.Get("user_name")
-
-    if err := h.RoomService.AuthorizeUser(userID.(uint), roomID); err != nil {
-        c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
-        return
-    }
+    roomIDStr := c.Query("room")
 
     if userID == nil || roomIDStr == "" || userName == nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+        return
+    }
+
+    roomID, err := uuid.Parse(roomIDStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room_id"})
+        return
+    }
+
+    if err := h.RoomService.AuthorizeUser(userID.(uint), roomID); err != nil {
+        c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
         return
     }
 
@@ -60,14 +65,15 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
         return
     }
 
-	roomClientsMu.Lock()
+    // ルームへの接続登録
+    roomClientsMu.Lock()
     if roomClients[roomIDStr] == nil {
         roomClients[roomIDStr] = make(map[*websocket.Conn]string)
     }
     roomClients[roomIDStr][conn] = userName.(string)
     roomClientsMu.Unlock()
 
-	defer func() {
+    defer func() {
         roomClientsMu.Lock()
         delete(roomClients[roomIDStr], conn)
         if len(roomClients[roomIDStr]) == 0 {
@@ -83,20 +89,19 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
             break
         }
 
-        // "ユーザー名: メッセージ" 形式で送信
         fullMessage := fmt.Sprintf("%s: %s", userName, string(msgBytes))
 
-		msg := &model.Message{
+        msg := &model.Message{
             RoomID:  roomID,
             Sender:  userName.(string),
             Content: string(msgBytes),
         }
+
         if err := h.MessageRepo.SaveMessage(msg); err != nil {
             fmt.Println("DB保存失敗:", err)
         }
-		
 
-		roomClientsMu.Lock()
+        roomClientsMu.Lock()
         for c := range roomClients[roomIDStr] {
             if err := c.WriteMessage(websocket.TextMessage, []byte(fullMessage)); err != nil {
                 c.Close()

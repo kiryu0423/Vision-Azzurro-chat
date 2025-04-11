@@ -85,7 +85,7 @@ func (s *RoomService) CreateGroupRoomIfNotExists(creatorID uint, userIDs []uint,
 
 
 func (s *RoomService) GetRoomsForUser(userID uint) ([]repository.RoomListItem, error) {
-	return s.Repo.GetRoomByUser(userID)
+    return s.Repo.GetRoomByUser(userID)
 }
 
 func GenerateGroupNameFromUserIDs(userIDs []uint) string {

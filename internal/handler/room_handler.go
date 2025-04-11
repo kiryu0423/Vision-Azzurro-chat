@@ -34,12 +34,8 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 	}
 
 	// ログイン中のユーザーID取得（セッションやJWTから）
-	val, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	currentUserID := val.(uint)
+	session := sessions.Default(c)
+    currentUserID := session.Get("user_id").(uint)
 
 	// --- 1対1チャットの場合 ---
 	if len(req.UserIDs) == 1 {
