@@ -67,7 +67,10 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create group room"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"room_id": roomID})
+	c.JSON(http.StatusOK, gin.H{
+		"room_id": roomID,
+		"display_name": displayName, // ← フロントに返す
+	})
 }
 
 

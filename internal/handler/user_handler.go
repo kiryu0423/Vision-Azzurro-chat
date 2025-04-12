@@ -17,7 +17,13 @@ func NewUserHandler(userService *service.UserService) *UserHandler {
 }
 
 func (h *UserHandler) ListUsers(c *gin.Context) {
-    userID := sessions.Default(c).Get("user_id").(uint)
+    session := sessions.Default(c)
+    idRaw := session.Get("user_id")
+    userID, ok := idRaw.(uint)
+    if !ok {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+        return
+    }
 
     users, err := h.UserService.GetSelectableUsers(userID)
     if err != nil {
@@ -27,3 +33,4 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 
     c.JSON(http.StatusOK, users)
 }
+

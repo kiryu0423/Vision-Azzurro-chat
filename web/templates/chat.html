@@ -3,165 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <title>チャットアプリ</title>
-  <style>
-    #sidebar { float: left; width: 20%; border-right: 1px solid #ccc; }
-    #chatArea { float: left; width: 80%; padding-left: 10px; }
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div id="sidebar">
-    <h3>チャット一覧</h3>
-    <ul id="roomList"></ul>
-    <h4>ユーザー一覧（新規チャット）</h4>
-    <ul id="userList"></ul>
+<body class="h-screen flex">
+
+  <button onclick="logout()" class="absolute top-4 right-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+    ログアウト
+  </button>
+
+  <!-- サイドバー -->
+  <div id="sidebar" class="w-1/4 bg-gray-100 p-4 overflow-y-auto">
+    <h3 class="text-lg font-bold mb-2">チャット一覧</h3>
+    <ul id="roomList" class="space-y-2 mb-4"></ul>
+
+    <h4 class="text-md font-semibold mb-2">ユーザー一覧（新規チャット）</h4>
+    <ul id="userList" class="space-y-2"></ul>
+
+    <button onclick="createGroup()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 w-full">
+      グループ作成
+    </button>
   </div>
 
-  <div id="chatArea">
-    <h3 id="roomTitle">チャットルーム</h3>
-    <ul id="chatLog"></ul>
-    <input type="text" id="messageInput" placeholder="メッセージを入力">
-    <button onclick="sendMessage()">送信</button>
-    <button onclick="logout()">ログアウト</button>
+  <!-- チャットエリア -->
+  <div id="chatArea" class="flex-1 flex flex-col p-4">
+    <h3 id="roomTitle" class="text-xl font-bold mb-2">チャットルーム</h3>
+
+    <ul id="chatLog" class="flex-1 overflow-y-auto border rounded p-2 space-y-1 mb-2 bg-white"></ul>
+
+    <div class="flex gap-2">
+      <input type="text" id="messageInput" placeholder="メッセージを入力"class="flex-1 px-4 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-300" />
+      <button onclick="sendMessage()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">送信</button>
+    </div>
   </div>
 
-  <script>
-    let currentRoomID = null;
-    let socket = null;
-
-    // ① ルーム一覧取得
-    async function loadRooms() {
-      const res = await fetch("/rooms");
-      const data = await res.json();
-
-      // nullチェック＋配列確認（← これでエラー防止）
-      const rooms = Array.isArray(data) ? data : [];
-
-      const roomList = document.getElementById("roomList");
-      roomList.innerHTML = "";
-
-      rooms.forEach(room => {
-        const li = document.createElement("li");
-        li.textContent = room.display_name || "未設定ルーム名";
-        li.style.cursor = "pointer";
-        li.onclick = () => {
-          joinRoom(room.room_id, room.member_names);
-        };
-        roomList.appendChild(li);
-      });
-    }
-
-    // ② ユーザー一覧取得
-    async function loadUsers() {
-      const res = await fetch("/users");
-      const users = await res.json();
-
-      const userList = document.getElementById("userList");
-      userList.innerHTML = "";
-
-      users.forEach(user => {
-        const li = document.createElement("li");
-        li.textContent = user.name;
-        li.style.cursor = "pointer";
-        li.onclick = async () => {
-          // ルーム作成 → チャット開始
-          const res = await fetch("/rooms", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ user_ids: [user.id] })
-          });
-
-
-          const data = await res.json();
-          if (data.room_id) {
-            joinRoom(data.room_id, user.name); // チャットルームへ
-          }
-        };
-        userList.appendChild(li);
-      });
-    }
-
-    // ② ルームを切り替える
-    async function joinRoom(roomID, roomName) {
-      currentRoomID = roomID;
-      document.getElementById("roomTitle").textContent = "チャット相手: " + roomName;
-
-      // 過去ログ取得
-      const res = await fetch(`/messages/${roomID}`);
-      const messages = await res.json();
-
-      const chatLog = document.getElementById("chatLog");
-      chatLog.innerHTML = "";
-
-      // ✅ 日時付き表示
-      messages.forEach(msg => {
-        const li = document.createElement("li");
-
-        const time = new Date(msg.created_at);
-        const hhmm = now.toLocaleTimeString('ja-JP', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-          timeZone: 'Asia/Tokyo'
-        });
-
-        li.textContent = `[${hhmm}] ${msg.sender}: ${msg.content}`;
-        chatLog.appendChild(li);
-      });
-
-      // WebSocket接続しなおし
-      if (socket) socket.close();
-      socket = new WebSocket("ws://localhost:8081/ws?room=" + roomID);
-      socket.onmessage = (event) => {
-        const chatLog = document.getElementById("chatLog");
-        const li = document.createElement("li");
-
-        // 日時送信
-        const now = new Date();
-        const hhmm = now.toLocaleTimeString('ja-JP', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false,
-          timeZone: 'Asia/Tokyo'
-        });
-        li.textContent = `[${hhmm}] ${event.data}`;
-        chatLog.appendChild(li);
-        scrollToBottom();
-      };
-
-
-      document.querySelectorAll("#roomList li").forEach(li => li.classList.remove("selected"));
-      event?.target?.classList?.add("selected")
-    }
-
-    // ③ メッセージ送信
-    function sendMessage() {
-      const input = document.getElementById("messageInput");
-      const msg = input.value;
-      if (socket && msg.trim()) {
-        socket.send(msg);
-        input.value = "";
-      }
-    }
-
-    function scrollToBottom() {
-      const chatLog = document.getElementById("chatLog");
-      chatLog.scrollTop = chatLog.scrollHeight;
-    }
-
-    // ④ ログアウト
-    function logout() {
-      fetch("/logout", { method: "POST", credentials: "include" })
-        .then(() => window.location.href = "/login-page");
-    }
-
-    // 初期化
-    window.onload = () => {
-      loadRooms();
-      loadUsers();
-    };
-
-    
-  </script>
+  <!-- JS読み込み -->
+  <script src="/static/js/chat.js" defer></script>
 </body>
 </html>

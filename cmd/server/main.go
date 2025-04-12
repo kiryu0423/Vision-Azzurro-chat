@@ -31,6 +31,7 @@ func main() {
 
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(db, userRepo)
+	userHandler := handler.NewUserHandler(userService)
 	authRepo := repository.NewUserRepository(db)
 	authService := service.NewAuthService(authRepo)
 	authHandler := handler.NewAuthHandler(authService)
@@ -49,6 +50,10 @@ func main() {
 
 	r.LoadHTMLGlob("web/templates/*")
 
+	r.Static("/static", "./web/static")
+
+	// ユーザー一覧の取得
+	r.GET("/users", userHandler.ListUsers)
 	// ユーザー登録
 	r.POST("/register", authHandler.Register)
 	// ユーザーログイン
