@@ -4,25 +4,46 @@ main
 *.exe
 *.out
 
-# Go関連
-vendor/
-*.test
-
-# エディタ・IDE
-.vscode/
-.idea/
-
-# OSファイル
-.DS_Store
-Thumbs.db
-
-# dotenv
-.env
-.env.*
-
 # Docker関連
 **/.container_env*
 
 # テスト用一時ファイル
 cookie.txt
+
+# === Go関係 ===
+/bin/
+/dist/
+/build/
+/vendor/
+*.exe
+*.test
+*.out
+
+# モジュールキャッシュなど
+go.sum
 *.log
+
+# IDE系
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === Frontend (Vite + Tailwind) ===
+# node_modulesは絶対に除外
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Tailwindの生成CSS
+frontend/src/output.css
+
+# envファイル
+*.env
+.env.local
+.env.production
+.env.development
+
+# OS別
+.DS_Store
+Thumbs.db

@@ -2,6 +2,7 @@ package main
 
 import (
 	"chat-app/internal/handler"
+	"chat-app/internal/middleware"
 	"chat-app/internal/repository"
 	"chat-app/internal/service"
 	"net/http"
@@ -43,6 +44,9 @@ func main() {
 	wsHandler := handler.NewWebSocketHandler(msgRepo, roomService)
 
 	r := gin.Default()
+
+	// CORSミドルウェアの追加
+	r.Use(middleware.CORSMiddleware())
 
 	// セッションミドルウェアの追加（CookieStore使用）
     store := cookie.NewStore([]byte("super-secret-key"))
