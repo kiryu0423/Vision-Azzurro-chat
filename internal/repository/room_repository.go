@@ -3,6 +3,7 @@ package repository
 import (
 	"chat-app/internal/model"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -19,6 +20,7 @@ func NewRoomRepository(db *gorm.DB) *RoomRepository {
 type RoomListItem struct {
     RoomID      uuid.UUID `json:"room_id"`
     DisplayName string    `json:"display_name"`
+    LastMessageAt time.Time `json:"last_message_at"`
 }
 
 func (r *RoomRepository) InUserInRoom(userID uint, roomID uuid.UUID) (bool, error) {
@@ -88,18 +90,16 @@ func (r *RoomRepository) CreateRoom(room *model.Room, userIDs []uint) error {
 func (r *RoomRepository) GetRoomByUser(userID uint) ([]RoomListItem, error) {
     var rooms []RoomListItem
     err := r.DB.Raw(`
-        SELECT 
-            r.id AS room_id,
-            r.display_name
-        FROM rooms r
-        JOIN room_members rm ON r.id = rm.room_id
-        WHERE r.id IN (
-            SELECT room_id FROM room_members WHERE user_id = ?
-        )
-        AND EXISTS (
-            SELECT 1 FROM messages m WHERE m.room_id = r.id
-        )
-        GROUP BY r.id, r.display_name;
+    SELECT 
+        r.id AS room_id,
+        r.display_name,
+        MAX(m.created_at) AS last_message_at
+    FROM rooms r
+    JOIN room_members rm ON r.id = rm.room_id
+    LEFT JOIN messages m ON m.room_id = r.id
+    WHERE rm.user_id = ?
+    GROUP BY r.id, r.display_name
+    ORDER BY last_message_at DESC NULLS LAST;
     `, userID).Scan(&rooms).Error
 
     return rooms, err

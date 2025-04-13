@@ -4,6 +4,7 @@ import (
 	"chat-app/internal/model"
 	"chat-app/internal/repository"
 	"chat-app/internal/service"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -89,8 +90,6 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
             break
         }
 
-        fullMessage := fmt.Sprintf("%s: %s", userName, string(msgBytes))
-
         msg := &model.Message{
             RoomID:  roomID,
             Sender:  userName.(string),
@@ -101,9 +100,15 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
             fmt.Println("DB保存失敗:", err)
         }
 
+        jsonMsg, err := json.Marshal(msg)
+        if err != nil {
+            fmt.Println("メッセージのJSON変換に失敗:", err)
+            continue
+        }
+
         roomClientsMu.Lock()
         for c := range roomClients[roomIDStr] {
-            if err := c.WriteMessage(websocket.TextMessage, []byte(fullMessage)); err != nil {
+            if err := c.WriteMessage(websocket.TextMessage, jsonMsg); err != nil {
                 c.Close()
                 delete(roomClients[roomIDStr], c)
             }

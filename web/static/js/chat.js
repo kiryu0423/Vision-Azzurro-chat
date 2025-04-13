@@ -2,28 +2,8 @@
 
 let currentRoomID = null;
 let socket = null;
-
-// ① ルーム一覧取得
-async function loadRooms() {
-    const res = await fetch("/rooms");
-    const data = await res.json();
-
-    // nullチェック＋配列確認（← これでエラー防止）
-    const rooms = Array.isArray(data) ? data : [];
-
-    const roomList = document.getElementById("roomList");
-    roomList.innerHTML = "";
-
-    rooms.forEach(room => {
-    const li = document.createElement("li");
-    li.textContent = room.display_name || "未設定ルーム名";
-    li.style.cursor = "pointer";
-    li.onclick = () => {
-        joinRoom(room.room_id, room.display_name);
-    };
-    roomList.appendChild(li);
-    });
-}
+let roomState = []; // ← 各ルーム { room_id, display_name, lastMessageAt } を持つ
+let lastRenderedDateStr = null;
 
 // ② ユーザー一覧取得
 async function loadUsers() {
@@ -68,7 +48,8 @@ async function createOneOnOne(userID, userName) {
 
     const data = await res.json();
     if (res.ok && data.room_id) {
-    joinRoom(data.room_id, userName);
+        await refreshRooms();
+        joinRoom(data.room_id, userName);
     } else {
     alert(data.error || "チャット作成に失敗しました");
     }
@@ -80,33 +61,36 @@ async function createGroup() {
     const userIDs = Array.from(checkboxes).map(cb => parseInt(cb.value));
 
     if (userIDs.length < 2) {
-    alert("2人以上選択してください");
-    return;
+      alert("2人以上選択してください");
+      return;
     }
 
     const res = await fetch("/rooms", {
-    method: "POST",
-    headers: {
+      method: "POST",
+      headers: {
         "Content-Type": "application/json"
-    },
-    credentials: "include",
-    body: JSON.stringify({
+      },
+      credentials: "include",
+      body: JSON.stringify({
         user_ids: userIDs,
         display_name: ""
-    })
+      })
     });
 
     const data = await res.json();
+
     if (res.ok && data.room_id) {
-    joinRoom(data.room_id, data.display_name);
+      await refreshRooms(); // ✅ 最新のルーム一覧を再取得
+      const roomName = data.display_name || "新しいグループ";
+      joinRoom(data.room_id, roomName); // ✅ フォールバック付きで表示
     } else {
-    alert(data.error || "グループ作成に失敗しました");
+      alert(data.error || "グループ作成に失敗しました");
     }
 }
 
-
 // ② ルームを切り替える
-async function joinRoom(roomID, roomName) {
+async function joinRoom(roomID, roomName, element) {
+    lastRenderedDateStr = null;
     currentRoomID = roomID;
     document.getElementById("roomTitle").textContent = "チャット相手: " + roomName;
 
@@ -119,17 +103,25 @@ async function joinRoom(roomID, roomName) {
 
     // ✅ 日時付き表示
     messages.forEach(msg => {
+    const messageTime = new Date(msg.created_at);
+
+    // 日付部分だけ切り出し（例: "2025-04-13"）
+    const currentDateStr = messageTime.toISOString().slice(0, 10);
+
+    if (currentDateStr !== lastRenderedDateStr) {
+        // 日付見出しを追加
+        const dateLi = document.createElement("li");
+        dateLi.textContent = `--- ${currentDateStr} ---`;
+        dateLi.classList.add("text-xs", "text-gray-500", "text-center", "py-1", "border-b");
+        chatLog.appendChild(dateLi);
+        lastRenderedDateStr = currentDateStr;
+    }
+
+    // 時刻（UTCのまま or JST補正不要）
+    const hhmm = messageTime.toISOString().substring(11, 16);
+
     const li = document.createElement("li");
-
-    const time = new Date(msg.created_at);
-    const loghhmm = time.toLocaleTimeString('ja-JP', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Tokyo'
-    });
-
-    li.textContent = `[${loghhmm}] ${msg.sender}: ${msg.content}`;
+    li.textContent = `[${hhmm}] ${msg.sender}: ${msg.content}`;
     chatLog.appendChild(li);
     });
 
@@ -138,25 +130,40 @@ async function joinRoom(roomID, roomName) {
     socket = new WebSocket("ws://localhost:8081/ws?room=" + roomID);
 
     socket.onmessage = (event) => {
-    const chatLog = document.getElementById("chatLog");
-    const li = document.createElement("li");
+        const data = JSON.parse(event.data);
+        const chatLog = document.getElementById("chatLog");
 
-    // 日時送信
-    const now = new Date();
-    const hhmm = now.toLocaleTimeString('ja-JP', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Tokyo'
-    });
-    li.textContent = `[${hhmm}] ${event.data}`;
-    chatLog.appendChild(li);
-    scrollToBottom();
+        const msgTime = new Date(data.created_at);
+        const jst = new Date(msgTime.getTime() + (9 * 60 * 60 * 1000));
+        const currentDateStr = jst.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+        // ✅ 日付ラベルは直前のメッセージと異なる日なら表示
+        if (currentDateStr !== lastRenderedDateStr) {
+            const dateLi = document.createElement("li");
+            dateLi.textContent = `--- ${currentDateStr} ---`;
+            dateLi.classList.add("text-xs", "text-gray-500", "text-center", "py-1", "border-b");
+            chatLog.appendChild(dateLi);
+            lastRenderedDateStr = currentDateStr;
+        }
+
+        const hhmm = jst.toISOString().substring(11, 16);
+
+        const li = document.createElement("li");
+        li.textContent = `[${hhmm}] ${data.sender}: ${data.content}`;
+        chatLog.appendChild(li);
+
+        // 並び替え用にルーム更新
+        const room = roomState.find(r => r.room_id === currentRoomID);
+        if (room) {
+            room.last_message_at = data.created_at;
+            renderRoomList();
+        }
+
+        scrollToBottom();
     };
 
-
     document.querySelectorAll("#roomList li").forEach(li => li.classList.remove("selected"));
-    event?.target?.classList?.add("selected")
+    element?.classList?.add("selected");
 }
 
 // ③ メッセージ送信
@@ -168,6 +175,36 @@ function sendMessage() {
     input.value = "";
     }
 }
+
+// ルーム一覧更新
+function renderRoomList() {
+    const roomList = document.getElementById("roomList");
+    roomList.innerHTML = "";
+
+    // lastMessageAt で並べ替え（新着が上）
+    roomState.sort((a, b) => {
+        const timeA = new Date(a.last_message_at || 0);  // ← null対策
+        const timeB = new Date(b.last_message_at || 0);
+        return timeB - timeA;
+    });
+
+    roomState.forEach(room => {
+        const li = document.createElement("li");
+        li.textContent = room.display_name;
+        li.style.cursor = "pointer";
+        li.onclick = (e) => joinRoom(room.room_id, room.display_name, e.currentTarget);
+        roomList.appendChild(li);
+    });
+}
+
+// ルーム更新
+async function refreshRooms() {
+    const res = await fetch("/rooms", { credentials: "include" });
+    const data = await res.json();
+    roomState = Array.isArray(data) ? data : [];
+    renderRoomList();
+}
+
 
 function scrollToBottom() {
     const chatLog = document.getElementById("chatLog");
@@ -182,6 +219,6 @@ function logout() {
 
 // 初期化
 window.onload = () => {
-    loadRooms();
+    refreshRooms();
     loadUsers();
 };
