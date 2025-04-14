@@ -58,7 +58,7 @@ export default function ChatArea({ roomId, roomName }: ChatAreaProps) {
       setMessages((prev) => [...prev, msg])
     }
 
-    return () =>　{
+    return () =>{
         ws.close()
         setIsConnected(false)
     }
