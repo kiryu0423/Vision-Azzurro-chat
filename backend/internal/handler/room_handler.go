@@ -123,3 +123,29 @@ func (h *RoomHandler) MarkRoomAsRead(c *gin.Context) {
 
 	c.JSON(200, gin.H{"status": "ok"})
 }
+
+// グループ名変更
+func (h *RoomHandler) UpdateRoomName(c *gin.Context) {
+	userID := sessions.Default(c).Get("user_id")
+	if userID == nil {
+		c.JSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	roomID := c.Param("room_id")
+	var req struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request"})
+		return
+	}
+
+	err := h.RoomService.UpdateRoomName(userID.(uint), roomID, req.DisplayName)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "update failed"})
+		return
+	}
+
+	c.JSON(200, gin.H{"status": "ok"})
+}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 
 type Message = {
   id: string
+  sender_id: number
   sender: string
   content: string
   created_at: string
@@ -13,9 +14,10 @@ type Message = {
 type ChatAreaProps = {
   roomId: string
   roomName: string
+  userId: number
 }
 
-export default function ChatArea({ roomId, roomName }: ChatAreaProps) {
+export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const socketRef = useRef<WebSocket | null>(null)
@@ -72,10 +74,26 @@ export default function ChatArea({ roomId, roomName }: ChatAreaProps) {
   }, [roomId])
 
   // メッセージ送信
+  const notifySocketRef = useRef<WebSocket | null>(null)
+
+  useEffect(() => {
+    const notifyWS = new WebSocket("ws://localhost:8081/ws-notify")
+    notifySocketRef.current = notifyWS
+    return () => notifyWS.close()
+  }, [])
+
   const handleSend = () => {
     if (socketRef.current?.readyState === WebSocket.OPEN && input.trim()) {
       socketRef.current.send(input)
       setInput("")
+
+      notifySocketRef.current?.send(
+        JSON.stringify({
+          room_id: roomId,
+          sender_id: userId,
+          created_at: new Date().toISOString(),
+        })
+      )
     }
   }
 
@@ -97,20 +115,20 @@ export default function ChatArea({ roomId, roomName }: ChatAreaProps) {
   let lastRenderedDate: string | null = null
 
   return (
-    <main className="flex-1 w-full flex flex-col p-4">
+    <main className="flex-1 w-full flex flex-col h-screen p-4">
       <div className="flex items-center gap-2 mb-2">
         <h3 className="text-xl font-bold">チャット相手: {roomName}</h3>
         <span className={`text-sm ${isConnected ? "text-green-600" : "text-red-500"}`}>
-            {isConnected ? "● 接続中" : "● 切断中"}
+          {isConnected ? "● 接続中" : "● 切断中"}
         </span>
       </div>
-
-      <ul ref={chatLogRef} className="flex-1 overflow-y-auto border rounded p-2 space-y-1 bg-white">
+  
+      <ul ref={chatLogRef} className="flex-1 flex flex-col overflow-y-auto border rounded p-2 space-y-1 bg-white">
         {messages.map((msg) => {
           const currentDate = formatDate(msg.created_at)
           const showDate = currentDate !== lastRenderedDate
           lastRenderedDate = currentDate
-
+  
           return (
             <div key={msg.id}>
               {showDate && (
@@ -118,14 +136,23 @@ export default function ChatArea({ roomId, roomName }: ChatAreaProps) {
                   --- {currentDate} ---
                 </li>
               )}
-              <li className="text-sm">
-                [{formatTime(msg.created_at)}] {msg.sender}: {msg.content}
+              <li
+                className={`text-sm p-2 rounded max-w-[70%] break-words ${
+                  msg.sender_id === userId
+                    ? "bg-blue-100 self-end text-right"
+                    : "bg-gray-100 self-start text-left"
+                }`}
+              >
+                <span className="text-xs text-gray-500 block">
+                  [{formatTime(msg.created_at)}] {msg.sender}
+                </span>
+                <span>{msg.content}</span>
               </li>
             </div>
           )
         })}
       </ul>
-
+  
       <div className="mt-2 flex gap-2">
         <Input
           value={input}

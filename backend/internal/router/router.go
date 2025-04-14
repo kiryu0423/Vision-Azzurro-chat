@@ -62,6 +62,7 @@ func SetupRouter(
 	r.GET("/messages/:room_id", msgHandler.GetMessages)
 	r.POST("/rooms", roomHandler.CreateRoom)
 	r.GET("/rooms", roomHandler.ListRooms)
+	r.PUT("/rooms/:room_id/name", roomHandler.UpdateRoomName)
 
 	r.GET("/chat", func(c *gin.Context) {
 		session := sessions.Default(c)

@@ -151,3 +151,10 @@ func (r *RoomRepository) UpsertRoomRead(userID uint, roomID string) error {
         }).
         Create(&read).Error
 }
+
+// グループ名変更
+func (r *RoomRepository) UpdateDisplayName(roomID string, name string) error {
+    return r.DB.Model(&model.Room{}).
+        Where("id = ? AND is_group = true", roomID).
+        Update("display_name", name).Error
+}

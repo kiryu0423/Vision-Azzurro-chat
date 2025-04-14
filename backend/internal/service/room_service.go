@@ -129,3 +129,9 @@ func (s *RoomService) GetUserRoomsWithUnread(userID uint) ([]dto.RoomWithUnread,
 func (s *RoomService) MarkAsRead(userID uint, roomID string) error {
     return s.rRepo.UpsertRoomRead(userID, roomID)
 }
+
+// グループ名変更
+func (s *RoomService) UpdateRoomName(userID uint, roomID string, name string) error {
+    // 権限チェックがあればここで（省略可）
+    return s.rRepo.UpdateDisplayName(roomID, name)
+}
