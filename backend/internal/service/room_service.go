@@ -1,6 +1,7 @@
 package service
 
 import (
+	"chat-app/internal/dto"
 	"chat-app/internal/model"
 	"chat-app/internal/repository"
 	"errors"
@@ -9,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-    "github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 type RoomService struct {
@@ -117,4 +118,14 @@ func GenerateGroupNameFromUserIDs(userIDs []uint) string {
         parts = append(parts, strconv.Itoa(int(id)))
     }
     return "group_" + strings.Join(parts, "_")
+}
+
+// 未読管理
+func (s *RoomService) GetUserRoomsWithUnread(userID uint) ([]dto.RoomWithUnread, error) {
+    return s.rRepo.GetRoomsWithUnreadCount(userID)
+}
+
+// 既読管理
+func (s *RoomService) MarkAsRead(userID uint, roomID string) error {
+    return s.rRepo.UpsertRoomRead(userID, roomID)
 }

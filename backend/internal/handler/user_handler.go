@@ -34,3 +34,18 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
     c.JSON(http.StatusOK, users)
 }
 
+func (h *UserHandler) Me(c *gin.Context) {
+    session := sessions.Default(c)
+    userID := session.Get("user_id")
+    userName := session.Get("user_name")
+
+    if userID == nil || userName == nil {
+        c.JSON(401, gin.H{"error": "unauthenticated"})
+        return
+    }
+
+    c.JSON(200, gin.H{
+        "user_id": userID,
+        "user_name": userName,
+    })
+}

@@ -1,12 +1,14 @@
 package repository
 
 import (
+	"chat-app/internal/dto"
 	"chat-app/internal/model"
 	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RoomRepository struct {
@@ -103,4 +105,49 @@ func (r *RoomRepository) GetRoomByUser(userID uint) ([]RoomListItem, error) {
     `, userID).Scan(&rooms).Error
 
     return rooms, err
+}
+
+// 未読管理
+func (r *RoomRepository) GetRoomsWithUnreadCount(userID uint) ([]dto.RoomWithUnread, error) {
+    var result []dto.RoomWithUnread
+
+    query := `
+        SELECT
+            r.id AS room_id,
+            r.display_name,
+            MAX(m.created_at) AS last_message_at,
+            COUNT(CASE
+                WHEN m.created_at > COALESCE(rr.last_read_at, '1970-01-01')
+                    AND m.sender_id != ? THEN 1
+                ELSE NULL
+            END) AS unread_count
+            FROM rooms r
+            JOIN room_members rm ON r.id = rm.room_id
+            LEFT JOIN messages m ON m.room_id = r.id
+            LEFT JOIN room_reads rr ON rr.room_id = r.id AND rr.user_id = ?
+            WHERE rm.user_id = ?
+            GROUP BY r.id, r.display_name, rr.last_read_at
+    `
+
+    if err := r.DB.Raw(query, userID, userID, userID).Scan(&result).Error; err != nil {
+        return nil, err
+    }
+
+    return result, nil
+}
+
+// 既読管理
+func (r *RoomRepository) UpsertRoomRead(userID uint, roomID string) error {
+    read := model.RoomRead{
+        UserID:     userID,
+        RoomID:     roomID,
+        LastReadAt: time.Now(),
+    }
+
+    return r.DB.
+        Clauses(clause.OnConflict{
+            Columns:   []clause.Column{{Name: "user_id"}, {Name: "room_id"}},
+            DoUpdates: clause.AssignmentColumns([]string{"last_read_at"}),
+        }).
+        Create(&read).Error
 }

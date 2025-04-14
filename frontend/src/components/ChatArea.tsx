@@ -38,6 +38,12 @@ export default function ChatArea({ roomId, roomName }: ChatAreaProps) {
         lastDateRef.current = null
       })
 
+    // ルームの既読更新
+    fetch(`http://localhost:8081/rooms/${roomId}/read`, {
+      method: "POST",
+      credentials: "include",
+    })
+
     // WebSocket接続
     socketRef.current?.close()
     const ws = new WebSocket(`ws://localhost:8081/ws?room=${roomId}`)
@@ -56,6 +62,7 @@ export default function ChatArea({ roomId, roomName }: ChatAreaProps) {
     ws.onmessage = (event) => {
       const msg: Message = JSON.parse(event.data)
       setMessages((prev) => [...prev, msg])
+      scrollToBottom()
     }
 
     return () =>{

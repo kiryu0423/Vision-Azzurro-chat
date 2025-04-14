@@ -31,7 +31,16 @@ CREATE TABLE room_members (
 CREATE TABLE messages (
   id SERIAL PRIMARY KEY,
   room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  sender_id INTEGER NOT NULL,
   sender TEXT NOT NULL,
   content TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ルームの既読情報テーブル
+CREATE TABLE room_reads (
+  user_id INT NOT NULL,
+  room_id UUID NOT NULL,
+  last_read_at TIMESTAMP NOT NULL,
+  PRIMARY KEY (user_id, room_id)
 );

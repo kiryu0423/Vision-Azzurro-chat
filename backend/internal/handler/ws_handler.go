@@ -29,12 +29,14 @@ var roomClientsMu sync.Mutex
 type WebSocketHandler struct {
     MessageRepo *repository.MessageRepository
     RoomService *service.RoomService
+    NotifyWSHandler  *NotifyWSHandler
 }
 
-func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService *service.RoomService) *WebSocketHandler {
+func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService *service.RoomService, notify *NotifyWSHandler) *WebSocketHandler {
     return &WebSocketHandler{
         MessageRepo: messageRepo,
         RoomService: roomService,
+        NotifyWSHandler: notify,
     }
 }
 
@@ -92,6 +94,7 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
 
         msg := &model.Message{
             RoomID:  roomID,
+            SenderID:userID.(uint),
             Sender:  userName.(string),
             Content: string(msgBytes),
         }
@@ -99,6 +102,19 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
         if err := h.MessageRepo.SaveMessage(msg); err != nil {
             fmt.Println("DB保存失敗:", err)
         }
+
+        // 通知用JSON構築（sender_id込み）
+        notifyMsg := map[string]interface{}{
+            "room_id":    msg.RoomID,
+            "sender_id":  msg.SenderID,
+            "sender":     msg.Sender,
+            "content":    msg.Content,
+            "created_at": msg.CreatedAt,
+        }
+        jsonNotify, _ := json.Marshal(notifyMsg)
+
+        // ✅ 通知用WebSocketにも送る
+        h.NotifyWSHandler.Broadcast(jsonNotify)
 
         jsonMsg, err := json.Marshal(msg)
         if err != nil {
