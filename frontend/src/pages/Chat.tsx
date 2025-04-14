@@ -35,7 +35,7 @@ export default function Chat() {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <ChatArea roomId={selectedRoomId} roomName={selectedRoomName} />
+        <ChatArea roomId={selectedRoomId} roomName={selectedRoomName} userId={userId}/>
       </div>
     </div>
   )

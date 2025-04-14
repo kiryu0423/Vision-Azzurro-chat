@@ -96,20 +96,21 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
-  
-      if (data.sender_id === userId) return
-  
+    
       setRooms((prevRooms) => {
         const updated = prevRooms.map((room) =>
           room.room_id === data.room_id
             ? {
                 ...room,
-                unread_count: (room.unread_count ?? 0) + 1,
                 last_message_at: data.created_at,
+                unread_count:
+                  data.sender_id === userId
+                    ? room.unread_count // 自分のメッセージは未読にしない
+                    : (room.unread_count ?? 0) + 1,
               }
             : room
         )
-  
+    
         return [...updated].sort((a, b) =>
           new Date(b.last_message_at ?? 0).getTime() -
           new Date(a.last_message_at ?? 0).getTime()
@@ -123,7 +124,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   }, [userId])
 
   return (
-    <aside className="w-full bg-gray-100 p-4 overflow-y-auto">
+    <aside className="w-64 h-screen bg-gray-100 p-4 overflow-y-auto">
       <h3 className="text-lg font-bold mb-2">チャット一覧</h3>
       <RoomList rooms={rooms} onSelectRoom={handleSelectRoom} />
 
