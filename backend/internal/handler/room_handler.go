@@ -73,16 +73,53 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 	})
 }
 
-
+// ルーム一覧
 func (h *RoomHandler) ListRooms(c *gin.Context) {
-    session := sessions.Default(c)
+	session := sessions.Default(c)
+	userID := session.Get("user_id")
+	if userID == nil {
+		c.JSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	rooms, err := h.RoomService.GetUserRoomsWithUnread(userID.(uint))
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to fetch rooms"})
+		return
+	}
+
+	c.JSON(200, rooms)
+}
+
+func (h *RoomHandler) GetUserRooms(c *gin.Context) {
+	session := sessions.Default(c)
     userID := session.Get("user_id").(uint)
 
-    rooms, err := h.RoomService.GetRoomsForUser(userID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch rooms"})
-        return
-    }
+	rooms, err := h.RoomService.GetUserRoomsWithUnread(userID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to fetch rooms"})
+		return
+	}
 
-    c.JSON(http.StatusOK, rooms)
+	c.JSON(200, rooms)
+}
+
+// 既読管理
+func (h *RoomHandler) MarkRoomAsRead(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id")
+	if userID == nil {
+		c.JSON(401, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	roomID := c.Param("room_id")
+
+	err := h.RoomService.MarkAsRead(userID.(uint), roomID)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to mark as read"})
+	return
+	}
+
+	c.JSON(200, gin.H{"status": "ok"})
 }
