@@ -116,7 +116,7 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
         JSON.stringify({
           room_id: roomId,
           sender_id: userId,
-          created_at: new Date().toISOString(),
+          created_at: new Date().toLocaleString(),
         })
       )
     }

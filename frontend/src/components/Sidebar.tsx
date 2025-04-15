@@ -21,6 +21,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [refreshRoomList, setRefreshRoomList] = useState(false)
+  const [selectedRoomId, setSelectedRoomId] = useState<string>("")
 
   const createOneOnOne = async (userId: number, userName: string) => {
     const res = await fetch("http://localhost:8081/rooms", {
@@ -79,8 +80,25 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
         setRooms(sorted)
       })
   }, [refreshRoomList])
-  
-  
+
+
+  // 定期的にルーム一覧を再取得（ポーリング）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch("http://localhost:8081/rooms", { credentials: "include" })
+        .then((res) => res.json())
+        .then((data) => {
+          const sorted = data.sort((a, b) =>
+            new Date(b.last_message_at ?? 0).getTime() -
+            new Date(a.last_message_at ?? 0).getTime()
+          )
+          setRooms(sorted)
+        })
+    }, 5000) // ← 5秒ごと
+
+    return () => clearInterval(interval)
+  }, [])
+
   const handleSelectRoom = (id: string, name: string) => {
     setRooms(prevRooms =>
       prevRooms.map(room =>
