@@ -17,7 +17,8 @@ CREATE TABLE rooms (
   name TEXT,
   display_name TEXT,
   is_group BOOLEAN DEFAULT false,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  last_message TEXT
 );
 
 -- ルームメンバーテーブル

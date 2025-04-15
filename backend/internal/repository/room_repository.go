@@ -92,9 +92,10 @@ func (r *RoomRepository) CreateRoom(room *model.Room, userIDs []uint) error {
 func (r *RoomRepository) GetRoomByUser(userID uint) ([]RoomListItem, error) {
     var rooms []RoomListItem
     err := r.DB.Raw(`
-    SELECT 
+    SELECT
         r.id AS room_id,
         r.display_name,
+        r.last_message,
         MAX(m.created_at) AS last_message_at
     FROM rooms r
     JOIN room_members rm ON r.id = rm.room_id
@@ -113,20 +114,22 @@ func (r *RoomRepository) GetRoomsWithUnreadCount(userID uint) ([]dto.RoomWithUnr
 
     query := `
         SELECT
-            r.id AS room_id,
-            r.display_name,
-            MAX(m.created_at) AS last_message_at,
-            COUNT(CASE
-                WHEN m.created_at > COALESCE(rr.last_read_at, '1970-01-01')
-                    AND m.sender_id != ? THEN 1
-                ELSE NULL
-            END) AS unread_count
-            FROM rooms r
-            JOIN room_members rm ON r.id = rm.room_id
-            LEFT JOIN messages m ON m.room_id = r.id
-            LEFT JOIN room_reads rr ON rr.room_id = r.id AND rr.user_id = ?
-            WHERE rm.user_id = ?
-            GROUP BY r.id, r.display_name, rr.last_read_at
+        r.id AS room_id,
+        r.display_name,
+        r.is_group,
+        r.last_message,
+        MAX(m.created_at) AS last_message_at,
+        COUNT(CASE
+            WHEN m.created_at > COALESCE(rr.last_read_at, '1970-01-01')
+                AND m.sender_id != ? THEN 1
+            ELSE NULL
+        END) AS unread_count
+        FROM rooms r
+        JOIN room_members rm ON r.id = rm.room_id
+        LEFT JOIN messages m ON m.room_id = r.id
+        LEFT JOIN room_reads rr ON rr.room_id = r.id AND rr.user_id = ?
+        WHERE rm.user_id = ?
+        GROUP BY r.id, r.display_name, rr.last_read_at
     `
 
     if err := r.DB.Raw(query, userID, userID, userID).Scan(&result).Error; err != nil {

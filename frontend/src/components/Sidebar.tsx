@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import RoomList from "./RoomList"
 import UserList from "./UserList"
 import { Button } from "@/components/ui/button"
@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button"
 type Room = {
   room_id: string
   display_name: string
+  is_group: boolean
   last_message_at?: string
   unread_count?: number
 }
 
 type SidebarProps = {
-  onSelectRoom: (id: string, name: string) => void
+  onSelectRoom: (id: string, name: string, isGroup: boolean) => void
   userId: number
 }
 
@@ -21,6 +22,9 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [refreshRoomList, setRefreshRoomList] = useState(false)
+  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
+  const [showGroupCreator, setShowGroupCreator] = useState(false)
+
 
   const createOneOnOne = async (userId: number, userName: string) => {
     const res = await fetch("http://localhost:8081/rooms", {
@@ -32,22 +36,26 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
         display_name: ""
       })
     })
-  
+
     const data = await res.json()
     if (res.ok && data.room_id) {
       setRefreshRoomList(prev => !prev)
-      handleSelectRoom(data.room_id, userName)
+      handleSelectRoom(data.room_id, userName, false)
+      setSelectedUserIds([])
+      setShowGroupCreator(false)
     } else {
       alert(data.error || "個人チャット作成に失敗しました")
+      setSelectedUserIds([])
+      setShowGroupCreator(false)
     }
-  }  
+  }
 
   const createGroup = async () => {
     if (selectedUserIds.length < 2) {
       alert("2人以上選択してください")
       return
     }
-  
+
     const res = await fetch("http://localhost:8081/rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,11 +65,13 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
         display_name: ""
       }),
     })
-  
+
     const data = await res.json()
     if (res.ok && data.room_id) {
       setRefreshRoomList(prev => !prev)
-      handleSelectRoom(data.room_id, data.display_name || "新しいグループ")
+      handleSelectRoom(data.room_id, data.display_name || "新しいグループ", true)
+      setSelectedUserIds([])
+      setShowGroupCreator(false) // ✅ ← これを追加して戻る
     } else {
       alert(data.error || "ルーム作成に失敗しました")
     }
@@ -79,15 +89,32 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
         setRooms(sorted)
       })
   }, [refreshRoomList])
-  
-  
-  const handleSelectRoom = (id: string, name: string) => {
+
+
+  // 定期的にルーム一覧を再取得（ポーリング）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch("http://localhost:8081/rooms", { credentials: "include" })
+        .then((res) => res.json())
+        .then((data) => {
+          setRooms(prevRooms => mergeRoomList(data, prevRooms))
+        })
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const currentRoomIdRef = useRef<string | null>(null)
+
+  const handleSelectRoom = (id: string, name: string, isGroup: boolean) => {
+    setCurrentRoomId(id)
+    currentRoomIdRef.current = id // ← ここで反映
     setRooms(prevRooms =>
       prevRooms.map(room =>
         room.room_id === id ? { ...room, unread_count: 0 } : room
       )
     )
-    onSelectRoom(id, name)
+    onSelectRoom(id, name, isGroup)
   }
 
   // 未読管理
@@ -104,8 +131,8 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
                 ...room,
                 last_message_at: data.created_at,
                 unread_count:
-                  data.sender_id === userId
-                    ? room.unread_count // 自分のメッセージは未読にしない
+                  data.sender_id === userId || data.room_id === currentRoomIdRef.current || data.from_self
+                    ? room.unread_count
                     : (room.unread_count ?? 0) + 1,
               }
             : room
@@ -123,24 +150,83 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
     }
   }, [userId])
 
+  useEffect(() => {
+    if (currentRoomId) {
+      currentRoomIdRef.current = currentRoomId
+    }
+  }, [currentRoomId])  
+
+  // ルームの管理（通知など）
+  const mergeRoomList = (fetched: Room[], current: Room[]) => {
+    const currentMap = new Map(current.map(r => [r.room_id, r]))
+  
+    return fetched.map(fetchedRoom => {
+      const currentRoom = currentMap.get(fetchedRoom.room_id)
+  
+      let unread_count = currentRoom?.unread_count ?? 0
+  
+      // 現在のルームならリセット
+      if (fetchedRoom.room_id === currentRoomIdRef.current) {
+        unread_count = 0
+      }
+      // それ以外でメッセージが更新されていればカウントアップ
+      else if (
+        currentRoom &&
+        fetchedRoom.last_message_at &&
+        fetchedRoom.last_message_at !== currentRoom.last_message_at
+      ) {
+        unread_count += 1
+      }
+  
+      return {
+        ...fetchedRoom,
+        unread_count,
+      }
+    }).sort((a, b) =>
+      new Date(b.last_message_at ?? 0).getTime() -
+      new Date(a.last_message_at ?? 0).getTime()
+    )
+  }
+
   return (
     <aside className="w-64 h-screen bg-gray-100 p-4 overflow-y-auto">
-      <h3 className="text-lg font-bold mb-2">チャット一覧</h3>
-      <RoomList rooms={rooms} onSelectRoom={handleSelectRoom} />
+    {showGroupCreator ? (
+      <>
+        <h3 className="text-lg font-bold mb-4">新規グループ作成</h3>
 
-      <h4 className="text-md font-semibold mt-6 mb-2">ユーザー一覧（新規チャット）</h4>
-      <UserList
-        selectedUserIds={selectedUserIds}
-        setSelectedUserIds={setSelectedUserIds}
-        onCreateOneOnOne={createOneOnOne}
-      />
+        <UserList
+          selectedUserIds={selectedUserIds}
+          setSelectedUserIds={setSelectedUserIds}
+          onCreateOneOnOne={createOneOnOne}
+        />
 
-      <Button
-        className="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white"
-        onClick={createGroup}
-      >
-        グループ作成
-      </Button>
-    </aside>
+        <Button
+          className="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white"
+          onClick={createGroup}
+        >
+          グループ作成
+        </Button>
+
+        <Button
+          className="mt-2 w-full bg-gray-300 hover:bg-gray-400 text-black"
+          onClick={() => setShowGroupCreator(false)}
+        >
+          ← 戻る
+        </Button>
+      </>
+    ) : (
+      <>
+        <Button
+          className="mb-4 w-full bg-green-500 hover:bg-green-600 text-white"
+          onClick={() => setShowGroupCreator(true)}
+        >
+          ＋ 新しいチャット
+        </Button>
+
+        <h3 className="text-lg font-bold mb-2">チャット一覧</h3>
+        <RoomList rooms={rooms} onSelectRoom={(id, name, isGroup) => handleSelectRoom(id, name, isGroup)} />
+      </>
+    )}
+  </aside>
   )
 }

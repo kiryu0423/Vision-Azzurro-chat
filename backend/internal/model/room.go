@@ -12,4 +12,5 @@ type Room struct {
     DisplayName  string `json:"display_name"`
     IsGroup   bool      `json:"is_group"`       // true: グループ, false: 1対1
     CreatedAt time.Time `json:"created_at"`
+    LastMessage  string    `json:"last_message"` 
 }

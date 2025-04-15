@@ -3,13 +3,15 @@ import { Badge } from "@/components/ui/badge"
 type Room = {
   room_id: string
   display_name: string
+  is_group: boolean
   last_message_at?: string
   unread_count?: number
+  last_message?: string
 }
 
 type RoomListProps = {
   rooms: Room[]
-  onSelectRoom: (id: string, name: string) => void
+  onSelectRoom: (id: string, name: string, isGroup: boolean) => void
 }
 
 export default function RoomList({ rooms, onSelectRoom }: RoomListProps) {
@@ -19,16 +21,19 @@ export default function RoomList({ rooms, onSelectRoom }: RoomListProps) {
       {rooms.map((room) => (
         <li
           key={room.room_id}
-          className="flex items-center justify-between px-4 py-2 rounded hover:bg-blue-100 cursor-pointer"
-          onClick={() => onSelectRoom(room.room_id, room.display_name)}
+          className="px-4 py-2 rounded hover:bg-blue-100 cursor-pointer"
+          onClick={() => onSelectRoom(room.room_id, room.display_name, room.is_group)}
         >
-          <span>{room.display_name}</span>
-
-          <div className="flex gap-2 items-center">
+          <div className="flex justify-between items-center">
+            <span className="font-semibold">{room.display_name}</span>
             {(room.unread_count ?? 0) > 0 && (
               <Badge className="bg-red-500 text-white">{room.unread_count}</Badge>
             )}
           </div>
+
+          {room.last_message && (
+            <div className="text-sm text-gray-600 truncate">{room.last_message}</div>
+          )}
         </li>
       ))}
     </ul>
