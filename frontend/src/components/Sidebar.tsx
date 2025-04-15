@@ -21,7 +21,6 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [refreshRoomList, setRefreshRoomList] = useState(false)
-  const [selectedRoomId, setSelectedRoomId] = useState<string>("")
 
   const createOneOnOne = async (userId: number, userName: string) => {
     const res = await fetch("http://localhost:8081/rooms", {
