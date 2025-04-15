@@ -1,5 +1,6 @@
 // src/components/ChatArea.tsx
 import { useEffect, useRef, useState } from "react"
+import { Pencil } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
@@ -23,6 +24,9 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
   const socketRef = useRef<WebSocket | null>(null)
   const chatLogRef = useRef<HTMLUListElement>(null)
   const [isConnected, setIsConnected] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [newRoomName, setNewRoomName] = useState(roomName)
+  const [currentRoomName, setCurrentRoomName] = useState(roomName)
 
   // 日付ラベルの表示用
   const lastDateRef = useRef<string | null>(null)
@@ -82,6 +86,27 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
     return () => notifyWS.close()
   }, [])
 
+  // ルーム名を編集
+  const handleRoomNameUpdate = async () => {
+    const res = await fetch(`http://localhost:8081/rooms/${roomId}/name`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ display_name: newRoomName }),
+    })
+
+    if (res.ok) {
+      setCurrentRoomName(newRoomName) // ← ここが重要
+      setIsEditingName(false)
+    } else {
+      alert("グループ名の更新に失敗しました")
+    }
+  }
+  useEffect(() => {
+    setCurrentRoomName(roomName)
+    setNewRoomName(roomName)
+  }, [roomName])
+
   const handleSend = () => {
     if (socketRef.current?.readyState === WebSocket.OPEN && input.trim()) {
       socketRef.current.send(input)
@@ -117,7 +142,34 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
   return (
     <main className="flex-1 w-full flex flex-col h-screen p-4">
       <div className="flex items-center gap-2 mb-2">
-        <h3 className="text-xl font-bold">チャット相手: {roomName}</h3>
+      {isEditingName ? (
+          <>
+            <input
+              className="border px-2 py-1 rounded text-sm"
+              value={newRoomName}
+              onChange={(e) => setNewRoomName(e.target.value)}
+            />
+            <Button size="sm" onClick={handleRoomNameUpdate}>
+              保存
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsEditingName(false)}>
+              キャンセル
+            </Button>
+          </>
+      ) : (
+          <>
+            <h3 className="text-xl font-bold">チャット相手: {currentRoomName}</h3>
+            <button
+              className="text-gray-500 hover:text-gray-700"
+              onClick={() => {
+                setNewRoomName(currentRoomName)
+                setIsEditingName(true)
+              }}
+            >
+              <Pencil size={18} />
+            </button>
+          </>
+      )}
         <span className={`text-sm ${isConnected ? "text-green-600" : "text-red-500"}`}>
           {isConnected ? "● 接続中" : "● 切断中"}
         </span>
