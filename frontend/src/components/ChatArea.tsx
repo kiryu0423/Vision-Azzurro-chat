@@ -57,8 +57,8 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
 
     // Websocket接続判定
     ws.onopen = () => {
-        setIsConnected(true)
-        console.log("WebSocket接続成功")
+      setIsConnected(true)
+      console.log("WebSocket接続成功")
     }
     ws.onclose = () => {
       setIsConnected(false)
@@ -66,7 +66,15 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
     }
 
     ws.onmessage = (event) => {
-      const msg: Message = JSON.parse(event.data)
+      const msg: Message & { from_self?: boolean } = JSON.parse(event.data)
+
+      // from_self でなければ JST 補正
+      if (!msg.from_self) {
+        const date = new Date(msg.created_at)
+        date.setHours(date.getHours() + 9)
+        msg.created_at = date.toISOString()
+      }
+
       setMessages((prev) => [...prev, msg])
       scrollToBottom()
     }
@@ -88,6 +96,11 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
 
   // ルーム名を編集
   const handleRoomNameUpdate = async () => {
+
+    if (!newRoomName.trim()) {
+      alert("グループ名を入力してください")
+      return
+    }
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/name`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -117,6 +130,7 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
           room_id: roomId,
           sender_id: userId,
           created_at: new Date().toLocaleString(),
+          from_self: true,
         })
       )
     }
@@ -174,13 +188,13 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
           {isConnected ? "● 接続中" : "● 切断中"}
         </span>
       </div>
-  
+
       <ul ref={chatLogRef} className="flex-1 flex flex-col overflow-y-auto border rounded p-2 space-y-1 bg-white">
         {messages.map((msg) => {
           const currentDate = formatDate(msg.created_at)
           const showDate = currentDate !== lastRenderedDate
           lastRenderedDate = currentDate
-  
+
           return (
             <div key={msg.id}>
               {showDate && (
