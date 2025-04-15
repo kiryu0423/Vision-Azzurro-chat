@@ -122,8 +122,32 @@ func GenerateGroupNameFromUserIDs(userIDs []uint) string {
 
 // 未読管理
 func (s *RoomService) GetUserRoomsWithUnread(userID uint) ([]dto.RoomWithUnread, error) {
-    return s.rRepo.GetRoomsWithUnreadCount(userID)
+    rooms, err := s.rRepo.GetRoomsWithUnreadCount(userID)
+    if err != nil {
+        return nil, err
+    }
+    user, err := s.uRepo.FindByID(userID)
+    if err != nil {
+        return nil, err
+    }
+
+    for i, room := range rooms {
+
+        if !room.IsGroup {
+            names := strings.Split(room.DisplayName, ",")
+            var others []string
+            for _, name := range names {
+                if strings.TrimSpace(name) != user.Name {
+                    others = append(others, strings.TrimSpace(name))
+                }
+            }
+            rooms[i].DisplayName = strings.Join(others, ", ")
+        }
+    }
+
+    return rooms, nil
 }
+
 
 // 既読管理
 func (s *RoomService) MarkAsRead(userID uint, roomID string) error {

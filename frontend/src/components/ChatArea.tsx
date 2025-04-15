@@ -1,7 +1,6 @@
 // src/components/ChatArea.tsx
 import { useEffect, useRef, useState } from "react"
 import { Pencil } from "lucide-react"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 type Message = {
@@ -16,9 +15,10 @@ type ChatAreaProps = {
   roomId: string
   roomName: string
   userId: number
+  isGroup: boolean
 }
 
-export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
+export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatAreaProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const socketRef = useRef<WebSocket | null>(null)
@@ -75,7 +75,17 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
         msg.created_at = date.toISOString()
       }
 
-      setMessages((prev) => [...prev, msg])
+      setMessages((prev) => {
+        const updated = [...prev, msg]
+
+        // ✅ 最新のメッセージを受信後に既読更新
+        fetch(`http://localhost:8081/rooms/${roomId}/read`, {
+          method: "POST",
+          credentials: "include",
+        })
+
+        return updated
+      })
       scrollToBottom()
     }
 
@@ -129,8 +139,8 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
         JSON.stringify({
           room_id: roomId,
           sender_id: userId,
-          created_at: new Date().toLocaleString(),
-          from_self: true,
+          created_at: new Date().toISOString(),
+          from_self: true
         })
       )
     }
@@ -154,7 +164,7 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
   let lastRenderedDate: string | null = null
 
   return (
-    <main className="flex-1 w-full flex flex-col h-screen p-4">
+    <main className="flex-1 min-w-[600px] flex flex-col h-screen p-4">
       <div className="flex items-center gap-2 mb-2">
       {isEditingName ? (
           <>
@@ -172,16 +182,20 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
           </>
       ) : (
           <>
-            <h3 className="text-xl font-bold">チャット相手: {currentRoomName}</h3>
-            <button
-              className="text-gray-500 hover:text-gray-700"
-              onClick={() => {
-                setNewRoomName(currentRoomName)
-                setIsEditingName(true)
-              }}
-            >
-              <Pencil size={18} />
-            </button>
+            <h3 className="text-xl font-bold">
+              {isGroup ? `グループ: ${currentRoomName}` : `チャット相手: ${currentRoomName}`}
+            </h3>
+            {isGroup && (
+              <button
+                className="text-gray-500 hover:text-gray-700"
+                onClick={() => {
+                  setNewRoomName(currentRoomName)
+                  setIsEditingName(true)
+                }}
+              >
+                <Pencil size={18} />
+              </button>
+            )}
           </>
       )}
         <span className={`text-sm ${isConnected ? "text-green-600" : "text-red-500"}`}>
@@ -202,32 +216,41 @@ export default function ChatArea({ roomId, roomName, userId }: ChatAreaProps) {
                   --- {currentDate} ---
                 </li>
               )}
-              <li
-                className={`text-sm p-2 rounded max-w-[70%] break-words ${
-                  msg.sender_id === userId
-                    ? "bg-blue-100 self-end text-right"
-                    : "bg-gray-100 self-start text-left"
-                }`}
-              >
-                <span className="text-xs text-gray-500 block">
-                  [{formatTime(msg.created_at)}] {msg.sender}
-                </span>
-                <span>{msg.content}</span>
+              <li className={`flex ${msg.sender_id === userId ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`text-sm p-2 rounded max-w-[70%] break-words whitespace-pre-wrap ${
+                    msg.sender_id === userId
+                      ? "bg-blue-100 text-right"
+                      : "bg-gray-100 text-left"
+                  }`}
+                >
+                  <span className="text-xs text-gray-500 block">
+                    [{formatTime(msg.created_at)}] {msg.sender}
+                  </span>
+                  <span>{msg.content}</span>
+                </div>
               </li>
             </div>
           )
         })}
       </ul>
-  
+
       <div className="mt-2 flex gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="メッセージを入力..."
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-        />
-        <Button onClick={handleSend}>送信</Button>
-      </div>
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault()
+            handleSend()
+          }
+        }}
+        rows={2}
+        className="flex-1 border border-gray-300 rounded p-2 resize-none"
+        placeholder="メッセージを入力（Shift+Enterで改行）"
+      />
+      <Button onClick={handleSend}>送信</Button>
+    </div>
     </main>
   )
 }

@@ -17,7 +17,13 @@ func NewMessageRepository(db *gorm.DB) *MessageRepository {
 }
 
 func (r *MessageRepository) SaveMessage(message *model.Message) error {
-	return r.DB.Create(message).Error
+	if err := r.DB.Create(message).Error; err != nil {
+		return err
+	}
+
+	return r.DB.Model(&model.Room{}).
+        Where("id = ?", message.RoomID).
+        Update("last_message", message.Content).Error
 }
 
 func (r *MessageRepository) GetMessagesByRoom(roomID uuid.UUID) ([]model.Message, error) {

@@ -7,6 +7,8 @@ export default function Chat() {
   const [selectedRoomId, setSelectedRoomId] = useState("")
   const [selectedRoomName, setSelectedRoomName] = useState("")
   const [userId, setUserId] = useState<number | null>(null)
+  const [selectedIsGroup, setSelectedIsGroup] = useState(false)
+
 
   useEffect(() => {
     fetch("http://localhost:8081/me", { credentials: "include" })
@@ -27,15 +29,20 @@ export default function Chat() {
       <div className="w-64 min-w-[240px] border-r">
         <Sidebar
         userId={userId}
-        onSelectRoom={(id, name) => {
+        onSelectRoom={(id, name, isGroup) => {
             setSelectedRoomId(id)
             setSelectedRoomName(name)
+            setSelectedIsGroup(isGroup)
         }}
         />
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <ChatArea roomId={selectedRoomId} roomName={selectedRoomName} userId={userId}/>
+        <ChatArea
+        roomId={selectedRoomId}
+        roomName={selectedRoomName}
+        userId={userId}
+        isGroup={selectedIsGroup}/>
       </div>
     </div>
   )
