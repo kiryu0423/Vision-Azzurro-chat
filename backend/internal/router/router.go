@@ -74,5 +74,10 @@ func SetupRouter(
 	// 既読管理
 	r.POST("/rooms/:room_id/read", roomHandler.MarkRoomAsRead)
 
+	// グループ退会
+	r.DELETE("/rooms/:room_id/members/me", roomHandler.LeaveRoom)
+	// グループ削除
+	r.DELETE("/rooms/:room_id", roomHandler.DeleteRoom)
+
 	return r
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type RoomHandler struct {
@@ -156,18 +157,23 @@ func (h *RoomHandler) GetRoomMembers(c *gin.Context) {
 	roomID := c.Param("id")
 
 	// ユーザーID（認証が必要なら）
-	// session := sessions.Default(c)
-	// userID, ok := session.Get("user_id").(uint)
-	// if !ok {
-	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-	// 	return
-	// }
+	session := sessions.Default(c)
+	userID, ok := session.Get("user_id").(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 
 	// 所属確認（オプション）
-	// if err := h.RoomService.AuthorizeUser(userID, roomID); err != nil {
-	// 	c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
-	// 	return
-	// }
+	parsedUUID, err := uuid.Parse(roomID)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid room ID"})
+		return
+	}
+	if err := h.RoomService.AuthorizeUser(userID, parsedUUID); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+		return
+	}
 
 	// メンバー取得
 	members, err := h.RoomService.GetMembersByRoomID(roomID)
@@ -177,4 +183,39 @@ func (h *RoomHandler) GetRoomMembers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, members)
+}
+
+// グループ退会
+func (h *RoomHandler) LeaveRoom(c *gin.Context) {
+	roomID := c.Param("room_id")
+	userID := sessions.Default(c).Get("user_id").(uint)
+
+	if err := h.RoomService.LeaveRoom(roomID, userID); err != nil {
+		c.JSON(500, gin.H{"error": "failed to leave room"})
+		return
+	}
+	c.JSON(200, gin.H{"status": "ok"})
+}
+
+// グループ削除
+func (h *RoomHandler) DeleteRoom(c *gin.Context) {
+	roomID := c.Param("room_id")
+	userID := sessions.Default(c).Get("user_id").(uint)
+
+	// 所属確認
+	parsedUUID, err := uuid.Parse(roomID)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid room ID"})
+		return
+	}
+	if err := h.RoomService.AuthorizeUser(userID, parsedUUID); err != nil {
+		c.JSON(403, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	if err := h.RoomService.DeleteRoom(roomID); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"status": "deleted"})
 }
