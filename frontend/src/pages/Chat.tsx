@@ -26,7 +26,7 @@ export default function Chat() {
   return (
     <div className="h-screen flex">
     {/* サイドバー幅修正 */}
-      <div className="w-64 min-w-[240px] border-r">
+      <div className="w-[300px] min-w-[300px] border-r">
         <Sidebar
         userId={userId}
         onSelectRoom={(id, name, isGroup) => {

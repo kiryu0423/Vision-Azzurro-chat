@@ -1,6 +1,13 @@
 // src/components/ChatArea.tsx
 import { useEffect, useRef, useState } from "react"
 import { Pencil } from "lucide-react"
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 
 type Message = {
   id: string
@@ -26,6 +33,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const [isEditingName, setIsEditingName] = useState(false)
   const [newRoomName, setNewRoomName] = useState(roomName)
   const [currentRoomName, setCurrentRoomName] = useState(roomName)
+  const [members, setMembers] = useState<string[]>([])
 
   // 日付ラベルの表示用
   const lastDateRef = useRef<string | null>(null)
@@ -136,6 +144,31 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     setNewRoomName(roomName)
   }, [roomName])
 
+  // グループメンバー取得
+  const fetchMembers = async () => {
+    const res = await fetch(`http://localhost:8081/rooms/${roomId}/members`, {
+      credentials: "include",
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setMembers(data.map((u: { name: string }) => u.name))
+    }
+  }
+  
+  // グループから退会
+  const handleLeaveGroup = async () => {
+    if (!window.confirm("本当に退会しますか？")) return
+    await fetch(`/rooms/${roomId}/members/me`, { method: "DELETE", credentials: "include" })
+    window.location.reload()
+  }
+  
+  // グループを削除
+  const handleDeleteGroup = async () => {
+    if (!window.confirm("本当に削除しますか？")) return
+    await fetch(`/rooms/${roomId}`, { method: "DELETE", credentials: "include" })
+    window.location.href = "/chat"
+  }
+
   const handleSend = () => {
     if (!input.trim()) return
   
@@ -216,15 +249,48 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
               {isGroup ? `グループ: ${currentRoomName}` : `チャット相手: ${currentRoomName}`}
             </h3>
             {isGroup && (
+              <>
               <button
                 className="rounded-md p-1"
                 onClick={() => {
                   setNewRoomName(currentRoomName)
                   setIsEditingName(true)
                 }}
-                >
+              >
                 <Pencil size={18} />
               </button>
+        
+              {/* ✅ ここに DialogTrigger を追加 */}
+              <Dialog onOpenChange={(open) => open && fetchMembers()}>
+                <DialogTrigger asChild>
+                  <button>メンバー一覧</button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>メンバー一覧</DialogTitle>
+                  </DialogHeader>
+        
+                  {/* メンバー一覧 */}
+                  <ul className="text-sm list-disc list-inside space-y-1 my-2">
+                    {members.map((name, i) => (
+                      <li key={i}>{name}</li>
+                    ))}
+                  </ul>
+        
+                  {/* 区切り + 操作ボタン */}
+                  <div className="border-t pt-4 mt-4 flex gap-2">
+                    <button onClick={handleLeaveGroup}>
+                      グループを退会する
+                    </button>
+                    {members.length === 1 && (
+                      <button onClick={handleDeleteGroup}>
+                        グループを削除する
+                      </button>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
             )}
           </div>
         )}

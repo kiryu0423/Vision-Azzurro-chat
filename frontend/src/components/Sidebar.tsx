@@ -188,7 +188,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   }
 
   return (
-    <aside className="w-64 h-screen bg-gray-100 p-4 overflow-y-auto">
+    <aside className="w-full h-screen bg-gray-100 p-4 overflow-y-auto">
     {showGroupCreator ? (
       <>
         <h3 className="text-lg font-bold mb-4">新規グループ作成</h3>
