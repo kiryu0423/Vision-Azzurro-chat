@@ -161,3 +161,17 @@ func (r *RoomRepository) UpdateDisplayName(roomID string, name string) error {
         Where("id = ? AND is_group = true", roomID).
         Update("display_name", name).Error
 }
+
+// ルームメンバー取得
+func (r *RoomRepository) GetRoomMembers(roomID string) ([]dto.UserSummary, error) {
+	var users []dto.UserSummary
+	err := r.DB.Raw(`
+		SELECT u.id, u.name
+		FROM users u
+		JOIN room_members rm ON rm.user_id = u.id
+		WHERE rm.room_id = ?
+		ORDER BY u.name
+	`, roomID).Scan(&users).Error
+
+	return users, err
+}

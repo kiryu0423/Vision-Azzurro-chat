@@ -159,3 +159,8 @@ func (s *RoomService) UpdateRoomName(userID uint, roomID string, name string) er
     // 権限チェックがあればここで（省略可）
     return s.rRepo.UpdateDisplayName(roomID, name)
 }
+
+// ルームメンバー取得
+func (s *RoomService) GetMembersByRoomID(roomID string) ([]dto.UserSummary, error) {
+	return s.rRepo.GetRoomMembers(roomID)
+}

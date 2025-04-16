@@ -26,6 +26,7 @@ type CreateRoomRequest struct {
 	DisplayName string `json:"display_name"`  // グループ名（任意）
 }
 
+// ルーム作成
 func (h *RoomHandler) CreateRoom(c *gin.Context) {
 	var req CreateRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -148,4 +149,32 @@ func (h *RoomHandler) UpdateRoomName(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"status": "ok"})
+}
+
+// ルームメンバー取得
+func (h *RoomHandler) GetRoomMembers(c *gin.Context) {
+	roomID := c.Param("id")
+
+	// ユーザーID（認証が必要なら）
+	// session := sessions.Default(c)
+	// userID, ok := session.Get("user_id").(uint)
+	// if !ok {
+	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+	// 	return
+	// }
+
+	// 所属確認（オプション）
+	// if err := h.RoomService.AuthorizeUser(userID, roomID); err != nil {
+	// 	c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
+	// 	return
+	// }
+
+	// メンバー取得
+	members, err := h.RoomService.GetMembersByRoomID(roomID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get members"})
+		return
+	}
+
+	c.JSON(http.StatusOK, members)
 }
