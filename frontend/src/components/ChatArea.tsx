@@ -191,13 +191,13 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
               />
               <button
                 onClick={handleRoomNameUpdate}
-                className="px-3 py-1 text-sm border rounded"
+                className=""
               >
                 保存
               </button>
               <button
                 onClick={() => setIsEditingName(false)}
-                className="px-3 py-1 text-sm border rounded"
+                className=""
               >
                 キャンセル
               </button>
