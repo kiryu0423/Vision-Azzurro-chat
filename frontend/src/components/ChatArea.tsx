@@ -30,6 +30,9 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   // 日付ラベルの表示用
   const lastDateRef = useRef<string | null>(null)
 
+  // グループ名の最大文字数
+  const maxGroupNameLength = 30
+
   // メッセージ取得 + WebSocket接続
   useEffect(() => {
     if (!roomId) return
@@ -110,6 +113,10 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
       alert("グループ名を入力してください")
       return
     }
+    if (newRoomName.length > 30) {
+      alert("グループ名は30文字以内で入力してください")
+      return
+    }
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/name`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -130,16 +137,23 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   }, [roomName])
 
   const handleSend = () => {
-    if (socketRef.current?.readyState === WebSocket.OPEN && input.trim()) {
+    if (!input.trim()) return
+  
+    if (input.length > 1000) {
+      alert("メッセージは1000文字以内で入力してください")
+      return
+    }
+  
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(input)
       setInput("")
-
+  
       notifySocketRef.current?.send(
         JSON.stringify({
           room_id: roomId,
           sender_id: userId,
           created_at: new Date().toISOString(),
-          from_self: true
+          from_self: true,
         })
       )
     }
@@ -168,18 +182,34 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
       <div>
         {isEditingName ? (
           <>
-            <input
-              className="border px-2 py-1 rounded text-sm"
-              value={newRoomName}
-              onChange={(e) => setNewRoomName(e.target.value)}
-            />
-            <button onClick={handleRoomNameUpdate}> {/* 保存ボタン */}
-              保存
-            </button>
-            <button onClick={() => setIsEditingName(false)}>
-              キャンセル
-            </button>
-          </>
+            <div className="flex items-center gap-2">
+              <input
+                className="border px-2 py-1 rounded text-sm w-80"
+                value={newRoomName}
+                onChange={(e) => setNewRoomName(e.target.value)}
+                maxLength={maxGroupNameLength + 10}
+              />
+              <button
+                onClick={handleRoomNameUpdate}
+                className="px-3 py-1 text-sm border rounded"
+              >
+                保存
+              </button>
+              <button
+                onClick={() => setIsEditingName(false)}
+                className="px-3 py-1 text-sm border rounded"
+              >
+                キャンセル
+              </button>
+            </div>
+
+            {/* 文字数カウント（下に配置） */}
+            <div
+              className={`text-xs mt-1 ${newRoomName.length > maxGroupNameLength ? "text-red-500" : "text-gray-400"}`}
+            >
+              {newRoomName.length}/{maxGroupNameLength}文字
+            </div>
+          </>        
         ) : (
           <div className="flex items-center gap-2"> {/* グループ名と編集ボタンをまとめる */}
             <h3 className="text-xl font-bold">
@@ -238,21 +268,30 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
       })}
     </ul>
 
-      <div className="mt-2 flex gap-2">
-      <textarea
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault()
-            handleSend()
-          }
-        }}
-        rows={2}
-        className="flex-1 border border-gray-300 rounded p-2 resize-none"
-        placeholder="メッセージを入力（Shift+Enterで改行）"
-      />
-      <button onClick={handleSend}>送信</button>
+    <div className="mt-2">
+      <div className="flex gap-2 items-end">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault()
+              handleSend()
+            }
+          }}
+          rows={2}
+          className="flex-1 border border-gray-300 rounded p-2 resize-none"
+          placeholder="メッセージを入力（Shift+Enterで改行）"
+        />
+        <button onClick={handleSend}>送信</button>
+      </div>
+      
+      {/* 文字数カウント（右下） */}
+      <div className={`text-right text-xs mt-1 pr-1 ${
+        input.length > 1000 ? "text-red-500" : "text-gray-400"
+      }`}>
+        {input.length}/1000文字
+      </div>
     </div>
     </main>
   )
