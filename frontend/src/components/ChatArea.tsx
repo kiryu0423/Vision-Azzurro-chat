@@ -267,7 +267,12 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
         ) : (
           <div className="flex items-center gap-2"> {/* グループ名と編集ボタンをまとめる */}
             <h3 className="text-xl font-bold">
-              {isGroup ? `グループ: ${currentRoomName}` : `チャット相手: ${currentRoomName}`}
+              <span
+              className="truncate block max-w-[400px]"
+              title={currentRoomName} // ✅ ホバーで全文表示
+              >
+                {currentRoomName}
+              </span>
             </h3>
             {isGroup && (
               <>
