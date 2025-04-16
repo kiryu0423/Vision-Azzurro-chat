@@ -26,10 +26,6 @@ func SetupRouter(
 	store := cookie.NewStore([]byte("super-secret-key"))
 	r.Use(sessions.Sessions("chat_session", store))
 
-	// Static & HTML
-	r.LoadHTMLGlob("web/templates/*")
-	r.Static("/static", "./web/static")
-
 	// Routing
 	r.GET("/users", userHandler.ListUsers)
 	r.GET("/me", userHandler.Me)

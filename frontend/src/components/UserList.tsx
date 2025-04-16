@@ -46,7 +46,7 @@ export default function UserList({
           </label>
           <button
             onClick={() => onCreateOneOnOne(user.id, user.name)}
-            className="text-sm px-2 py-1 bg-blue-400 text-white rounded hover:bg-blue-500"
+            className="text-sm px-2 py-1 rounded"
           >
             個人チャット
           </button>
