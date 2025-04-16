@@ -25,6 +25,7 @@ type RoomListItem struct {
     LastMessageAt time.Time `json:"last_message_at"`
 }
 
+// ルームメンバーにユーザーがいるか確認
 func (r *RoomRepository) InUserInRoom(userID uint, roomID uuid.UUID) (bool, error) {
 	var count int64
 	err := r.DB.
@@ -34,6 +35,7 @@ func (r *RoomRepository) InUserInRoom(userID uint, roomID uuid.UUID) (bool, erro
 	return count > 0, err
 }
 
+// ルームIDからルーム情報取得
 func (r *RoomRepository) FindRoomByUsers(userAID, userBID uint) (*model.Room, error) {
     var room model.Room
     err := r.DB.Raw(`
@@ -51,6 +53,7 @@ func (r *RoomRepository) FindRoomByUsers(userAID, userBID uint) (*model.Room, er
     return &room, nil
 }
 
+// ルームIDからルーム情報取得
 func (r *RoomRepository) FindGroupRoomByName(name string) (*model.Room, error) {
     var room model.Room
     err := r.DB.
@@ -63,6 +66,7 @@ func (r *RoomRepository) FindGroupRoomByName(name string) (*model.Room, error) {
     return &room, err
 }
 
+// ルーム作成
 func (r *RoomRepository) CreateRoom(room *model.Room, userIDs []uint) error {
     // トランザクションでまとめて処理
     return r.DB.Transaction(func(tx *gorm.DB) error {
@@ -160,4 +164,36 @@ func (r *RoomRepository) UpdateDisplayName(roomID string, name string) error {
     return r.DB.Model(&model.Room{}).
         Where("id = ? AND is_group = true", roomID).
         Update("display_name", name).Error
+}
+
+// ルームメンバー取得
+func (r *RoomRepository) GetRoomMembers(roomID string) ([]dto.UserSummary, error) {
+	var users []dto.UserSummary
+	err := r.DB.Raw(`
+		SELECT u.id, u.name
+		FROM users u
+		JOIN room_members rm ON rm.user_id = u.id
+		WHERE rm.room_id = ?
+		ORDER BY u.name
+	`, roomID).Scan(&users).Error
+
+	return users, err
+}
+
+// ルーム退会
+func (r *RoomRepository) RemoveMember(roomID string, userID uint) error {
+	return r.DB.Where("room_id = ? AND user_id = ?", roomID, userID).Delete(&model.RoomMember{}).Error
+}
+
+// グループ削除
+func (r *RoomRepository) DeleteRoom(roomID string) error {
+	return r.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("room_id = ?", roomID).Delete(&model.RoomMember{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("id = ?", roomID).Delete(&model.Room{}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }

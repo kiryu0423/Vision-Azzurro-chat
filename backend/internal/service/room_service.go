@@ -25,6 +25,7 @@ func NewRoomService(roomRepo *repository.RoomRepository, userRepo *repository.Us
     }
 }
 
+// ルームメンバーにユーザーがいるか確認
 func (s *RoomService) AuthorizeUser(userID uint, roomID uuid.UUID) error {
 	ok, err := s.rRepo.InUserInRoom(userID, roomID)
 	if err != nil {
@@ -158,4 +159,19 @@ func (s *RoomService) MarkAsRead(userID uint, roomID string) error {
 func (s *RoomService) UpdateRoomName(userID uint, roomID string, name string) error {
     // 権限チェックがあればここで（省略可）
     return s.rRepo.UpdateDisplayName(roomID, name)
+}
+
+// ルームメンバー取得
+func (s *RoomService) GetMembersByRoomID(roomID string) ([]dto.UserSummary, error) {
+	return s.rRepo.GetRoomMembers(roomID)
+}
+
+// グループ退会
+func (s *RoomService) LeaveRoom(roomID string, userID uint) error {
+	return s.rRepo.RemoveMember(roomID, userID)
+}
+
+// グループ削除
+func (s *RoomService) DeleteRoom(roomID string) error {
+	return s.rRepo.DeleteRoom(roomID)
 }

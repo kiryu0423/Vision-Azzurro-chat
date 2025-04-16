@@ -42,13 +42,18 @@ export default function UserList({
               checked={selectedUserIds.includes(user.id)}
               onChange={(e) => handleCheck(user.id, e.target.checked)}
             />
-            <span>{user.name}</span>
+            <span
+              className="truncate block max-w-[120px]"
+              title={user.name}
+            >
+              {user.name}
+            </span>
           </label>
           <button
             onClick={() => onCreateOneOnOne(user.id, user.name)}
-            className="text-sm px-2 py-1 rounded"
+            className="text-xs px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-100"
           >
-            個人チャット
+            チャット
           </button>
         </li>
       ))}

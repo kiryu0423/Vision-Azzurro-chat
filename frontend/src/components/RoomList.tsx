@@ -24,10 +24,17 @@ export default function RoomList({ rooms, onSelectRoom }: RoomListProps) {
           className="px-4 py-2 rounded hover:bg-blue-100 cursor-pointer"
           onClick={() => onSelectRoom(room.room_id, room.display_name, room.is_group)}
         >
-          <div className="flex justify-between items-center">
-            <span className="font-semibold">{room.display_name}</span>
+          <div className="flex justify-between items-center gap-2">
+          <span
+            className="truncate block max-w-[160px]"
+            title={room.display_name} // ✅ ホバーで全文表示
+          >
+            {room.display_name}
+          </span>
             {(room.unread_count ?? 0) > 0 && (
-              <Badge className="bg-red-500 text-white">{room.unread_count}</Badge>
+              <Badge className="bg-red-500 text-white shrink-0">
+                {room.unread_count}
+              </Badge>
             )}
           </div>
 
