@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import RoomList from "./RoomList"
 import UserList from "./UserList"
-import { Button } from "@/components/ui/button"
 
 // 型定義（Roomなど）は別途インポートするか定義してください
 type Room = {
@@ -200,28 +199,28 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
           onCreateOneOnOne={createOneOnOne}
         />
 
-        <Button
-          className="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white"
+        <button
+          className="mt-4 w-full"
           onClick={createGroup}
         >
           グループ作成
-        </Button>
+        </button>
 
-        <Button
-          className="mt-2 w-full bg-gray-300 hover:bg-gray-400 text-black"
+        <button
+          className="mt-2 w-full"
           onClick={() => setShowGroupCreator(false)}
         >
           ← 戻る
-        </Button>
+        </button>
       </>
     ) : (
       <>
-        <Button
-          className="mb-4 w-full bg-green-500 hover:bg-green-600 text-white"
+        <button
+          className="mb-4 w-full"
           onClick={() => setShowGroupCreator(true)}
         >
           ＋ 新しいチャット
-        </Button>
+        </button>
 
         <h3 className="text-lg font-bold mb-2">チャット一覧</h3>
         <RoomList rooms={rooms} onSelectRoom={(id, name, isGroup) => handleSelectRoom(id, name, isGroup)} />

@@ -1,7 +1,6 @@
 // src/components/ChatArea.tsx
 import { useEffect, useRef, useState } from "react"
 import { Pencil } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 type Message = {
   id: string
@@ -165,75 +164,79 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
 
   return (
     <main className="flex-1 min-w-[600px] flex flex-col h-screen p-4">
-      <div className="flex items-center gap-2 mb-2">
-      {isEditingName ? (
+      <div className="flex items-center justify-between mb-2"> {/* justify-betweenで左右に配置 */}
+      <div>
+        {isEditingName ? (
           <>
             <input
               className="border px-2 py-1 rounded text-sm"
               value={newRoomName}
               onChange={(e) => setNewRoomName(e.target.value)}
             />
-            <Button size="sm" onClick={handleRoomNameUpdate}>
+            <button onClick={handleRoomNameUpdate}> {/* 保存ボタン */}
               保存
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setIsEditingName(false)}>
+            </button>
+            <button onClick={() => setIsEditingName(false)}>
               キャンセル
-            </Button>
+            </button>
           </>
-      ) : (
-          <>
+        ) : (
+          <div className="flex items-center gap-2"> {/* グループ名と編集ボタンをまとめる */}
             <h3 className="text-xl font-bold">
               {isGroup ? `グループ: ${currentRoomName}` : `チャット相手: ${currentRoomName}`}
             </h3>
             {isGroup && (
               <button
-                className="text-gray-500 hover:text-gray-700"
+                className="rounded-md p-1"
                 onClick={() => {
                   setNewRoomName(currentRoomName)
                   setIsEditingName(true)
                 }}
-              >
+                >
                 <Pencil size={18} />
               </button>
             )}
-          </>
-      )}
-        <span className={`text-sm ${isConnected ? "text-green-600" : "text-red-500"}`}>
-          {isConnected ? "● 接続中" : "● 切断中"}
-        </span>
+          </div>
+        )}
       </div>
+      <span className={`text-sm ${isConnected ? "text-green-600" : "text-red-500"}`}>
+        {isConnected ? "● 接続中" : "● 切断中"}
+      </span>
+    </div>
 
-      <ul ref={chatLogRef} className="flex-1 flex flex-col overflow-y-auto border rounded p-2 space-y-1 bg-white">
-        {messages.map((msg) => {
-          const currentDate = formatDate(msg.created_at)
-          const showDate = currentDate !== lastRenderedDate
-          lastRenderedDate = currentDate
+    <ul ref={chatLogRef} className="flex-1 flex flex-col overflow-y-auto border rounded p-2 space-y-1 bg-white">
+      {messages.map((msg) => {
+        const currentDate = formatDate(msg.created_at);
+        const showDate = currentDate !== lastRenderedDate;
+        lastRenderedDate = currentDate;
 
-          return (
-            <div key={msg.id}>
-              {showDate && (
-                <li className="text-xs text-gray-500 text-center py-1 border-b">
+        return (
+          <div key={msg.id}>
+            {showDate && (
+              <li className="text-xs text-gray-500 text-center py-1"> {/* border-bを削除 */}
+                <div className="bg-gray-100 py-0.5 rounded-full inline-block px-2"> {/* 背景色とpaddingを追加 */}
                   --- {currentDate} ---
-                </li>
-              )}
-              <li className={`flex ${msg.sender_id === userId ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`text-sm p-2 rounded max-w-[70%] break-words whitespace-pre-wrap ${
-                    msg.sender_id === userId
-                      ? "bg-blue-100 text-right"
-                      : "bg-gray-100 text-left"
-                  }`}
-                >
-                  <span className="text-xs text-gray-500 block">
-                    [{formatTime(msg.created_at)}] {msg.sender}
-                  </span>
-                  <span>{msg.content}</span>
                 </div>
               </li>
-            </div>
-          )
-        })}
-      </ul>
+            )}
+            <li className={`flex ${msg.sender_id === userId ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`text-sm p-2 rounded max-w-[70%] break-words whitespace-pre-wrap ${
+                  msg.sender_id === userId
+                    ? "bg-blue-200 text-right" // 少し明るい青
+                    : "bg-gray-100 text-left"
+                }`}
+              >
+                <span>{msg.content}</span> {/* メッセージ本文を先に */}
+                <div className="text-xs text-gray-500 block mt-1"> {/* 下に移動、margin-topを追加 */}
+                  [{formatTime(msg.created_at)}] {msg.sender}
+                </div>
+              </div>
+            </li>
+          </div>
+        );
+      })}
+    </ul>
 
       <div className="mt-2 flex gap-2">
       <textarea
@@ -249,7 +252,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
         className="flex-1 border border-gray-300 rounded p-2 resize-none"
         placeholder="メッセージを入力（Shift+Enterで改行）"
       />
-      <Button onClick={handleSend}>送信</Button>
+      <button onClick={handleSend}>送信</button>
     </div>
     </main>
   )
