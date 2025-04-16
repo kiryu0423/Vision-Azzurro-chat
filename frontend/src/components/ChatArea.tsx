@@ -157,18 +157,38 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   
   // グループから退会
   const handleLeaveGroup = async () => {
-    if (!window.confirm("本当に退会しますか？")) return
-    await fetch(`/rooms/${roomId}/members/me`, { method: "DELETE", credentials: "include" })
-    window.location.reload()
+    if (!window.confirm("本当にグループを退会しますか？")) return
+  
+    const res = await fetch(`http://localhost:8081/rooms/${roomId}/members/me`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+  
+    if (res.ok) {
+      window.location.reload() // ✅ 退会後にリスト再読込
+    } else {
+      alert("退会に失敗しました")
+    }
   }
+  
   
   // グループを削除
   const handleDeleteGroup = async () => {
-    if (!window.confirm("本当に削除しますか？")) return
-    await fetch(`/rooms/${roomId}`, { method: "DELETE", credentials: "include" })
-    window.location.href = "/chat"
-  }
+    if (!window.confirm("このグループを完全に削除しますか？")) return
+  
+    const res = await fetch(`http://localhost:8081/rooms/${roomId}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+  
+    if (res.ok) {
+      window.location.href = "/chat" // ✅ 削除後にトップに戻るなど
+    } else {
+      alert("削除に失敗しました")
+    }
+  }  
 
+  // メッセージ送信
   const handleSend = () => {
     if (!input.trim()) return
   
@@ -192,13 +212,14 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     }
   }
 
+  // スクロール位置を最下部に
   const scrollToBottom = () => {
     setTimeout(() => {
       chatLogRef.current?.scrollTo({
         top: chatLogRef.current.scrollHeight,
         behavior: "smooth",
       })
-    }, 100)
+    }, 10)
   }
 
   const formatDate = (dateStr: string) =>
@@ -282,11 +303,9 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
                     <button onClick={handleLeaveGroup}>
                       グループを退会する
                     </button>
-                    {members.length === 1 && (
-                      <button onClick={handleDeleteGroup}>
-                        グループを削除する
-                      </button>
-                    )}
+                    <button onClick={handleDeleteGroup}>
+                      グループを削除する
+                    </button>
                   </div>
                 </DialogContent>
               </Dialog>
