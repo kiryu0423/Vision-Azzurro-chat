@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"chat-app/internal/model"
 	"chat-app/internal/repository"
 	"chat-app/internal/service"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -40,14 +40,18 @@ func (h *MessageHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.MessageRepo.GetMessagesByRoom(roomID)
+	// ✅ クエリパラメータを取得
+	// handler/message_handler.go
+	before := c.Query("before")
+	limitStr := c.DefaultQuery("limit", "30")
+	limit, _ := strconv.Atoi(limitStr)
+
+	// repository側に渡す
+	messages, err := h.MessageRepo.GetMessagesBefore(roomID, before, limit)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch messages"})
 		return
-	}
-
-	if messages == nil {
-		messages = []model.Message{}
 	}
 
 	c.JSON(http.StatusOK, messages)
