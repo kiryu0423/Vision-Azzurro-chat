@@ -162,28 +162,12 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
     return fetched.map(fetchedRoom => {
       const currentRoom = currentMap.get(fetchedRoom.room_id)
   
-      let unread_count = currentRoom?.unread_count ?? 0
-  
-      // 現在のルームならリセット
-      if (fetchedRoom.room_id === currentRoomIdRef.current) {
-        unread_count = 0
-      }
-      // それ以外でメッセージが更新されていればカウントアップ
-      else if (
-        currentRoom &&
-        fetchedRoom.last_message_at &&
-        fetchedRoom.last_message_at !== currentRoom.last_message_at
-      ) {
-        unread_count += 1
-      }
-  
       return {
         ...fetchedRoom,
-        unread_count,
+        unread_count: currentRoom?.unread_count ?? 0, // ✅ ポーリングでは上書きしない
       }
     }).sort((a, b) =>
-      new Date(b.last_message_at ?? 0).getTime() -
-      new Date(a.last_message_at ?? 0).getTime()
+      new Date(b.last_message_at ?? 0).getTime() - new Date(a.last_message_at ?? 0).getTime()
     )
   }
 

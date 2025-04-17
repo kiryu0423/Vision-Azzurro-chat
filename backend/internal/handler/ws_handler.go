@@ -2,6 +2,7 @@ package handler
 
 import (
 	"chat-app/internal/model"
+	"chat-app/internal/notify"
 	"chat-app/internal/repository"
 	"chat-app/internal/service"
 	"encoding/json"
@@ -13,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 )
 
 var upgrader = websocket.Upgrader {
@@ -27,18 +29,21 @@ var roomClients = make(map[string]map[*websocket.Conn]string)
 var roomClientsMu sync.Mutex
 
 type WebSocketHandler struct {
-    MessageRepo *repository.MessageRepository
-    RoomService *service.RoomService
-    NotifyWSHandler  *NotifyWSHandler
+    MessageRepo     *repository.MessageRepository
+    RoomService     *service.RoomService
+    NotifyWSHandler *NotifyWSHandler // ←既存
+    RedisClient     *redis.Client    // ✅ 追加
 }
 
-func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService *service.RoomService, notify *NotifyWSHandler) *WebSocketHandler {
+func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService *service.RoomService, notify *NotifyWSHandler, redisClient *redis.Client) *WebSocketHandler {
     return &WebSocketHandler{
-        MessageRepo: messageRepo,
-        RoomService: roomService,
+        MessageRepo:     messageRepo,
+        RoomService:     roomService,
         NotifyWSHandler: notify,
+        RedisClient:     redisClient,
     }
 }
+
 
 func (h *WebSocketHandler) Handle(c *gin.Context) {
     session := sessions.Default(c)
@@ -103,7 +108,7 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
             fmt.Println("DB保存失敗:", err)
         }
 
-        // 通知用JSON構築（sender_id込み）
+        // 通知用JSON構築
         notifyMsg := map[string]interface{}{
             "room_id":    msg.RoomID,
             "sender_id":  msg.SenderID,
@@ -111,11 +116,16 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
             "content":    msg.Content,
             "created_at": msg.CreatedAt,
         }
-        jsonNotify, _ := json.Marshal(notifyMsg)
 
-        // ✅ 通知用WebSocketにも送る
-        h.NotifyWSHandler.Broadcast(jsonNotify)
-
+        // 参加メンバー全員に通知（自分除く）
+        members, err := h.RoomService.GetMembersByRoomID(roomID.String())
+        if err == nil {
+            for _, m := range members {
+                if m.ID != msg.SenderID {
+                    notify.PublishToUser(h.RedisClient, m.ID, notifyMsg)
+                }
+            }
+        }
         jsonMsg, err := json.Marshal(msg)
         if err != nil {
             fmt.Println("メッセージのJSON変換に失敗:", err)
