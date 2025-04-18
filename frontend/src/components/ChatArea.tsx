@@ -34,9 +34,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const [newRoomName, setNewRoomName] = useState(roomName)
   const [currentRoomName, setCurrentRoomName] = useState(roomName)
   const [members, setMembers] = useState<string[]>([])
-
-  // 日付ラベルの表示用
-  const lastDateRef = useRef<string | null>(null)
+  const lastMessageRef = useRef<HTMLLIElement | null>(null)
 
   // グループ名の最大文字数
   const maxGroupNameLength = 30
@@ -46,23 +44,28 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     if (!roomId) return
 
     // 過去ログ取得
-    fetch(`http://localhost:8081/messages/${roomId}`, { credentials: "include" })
+    const token = localStorage.getItem("jwt_token")
+    if (!token) return
+    fetch(`http://localhost:8081/messages/${roomId}?limit=30`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         setMessages(data || [])
-        scrollToBottom()
-        lastDateRef.current = null
-      })
+        setHasMore(data.length === 30)
+    })
 
     // ルームの既読更新
     fetch(`http://localhost:8081/rooms/${roomId}/read`, {
       method: "POST",
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
 
     // WebSocket接続
     socketRef.current?.close()
-    const ws = new WebSocket(`ws://localhost:8081/ws?room=${roomId}`)
+    const ws = new WebSocket(`ws://localhost:8081/ws?room=${roomId}&token=${token}`)
     socketRef.current = ws
 
     // Websocket接続判定
@@ -78,6 +81,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     ws.onmessage = (event) => {
       const msg: Message & { from_self?: boolean } = JSON.parse(event.data)
 
+
       // from_self でなければ JST 補正
       if (!msg.from_self) {
         const date = new Date(msg.created_at)
@@ -91,7 +95,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
         // ✅ 最新のメッセージを受信後に既読更新
         fetch(`http://localhost:8081/rooms/${roomId}/read`, {
           method: "POST",
-          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
         })
 
         return updated
@@ -109,10 +113,12 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const notifySocketRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const notifyWS = new WebSocket("ws://localhost:8081/ws-notify")
+    const token = localStorage.getItem("jwt_token")
+    if (!roomId || !token) return
+    const notifyWS = new WebSocket(`ws://localhost:8081/ws-notify?token=${token}`)
     notifySocketRef.current = notifyWS
     return () => notifyWS.close()
-  }, [])
+  }, [roomId])
 
   // ルーム名を編集
   const handleRoomNameUpdate = async () => {
@@ -125,10 +131,14 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
       alert("グループ名は30文字以内で入力してください")
       return
     }
+
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/name`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ display_name: newRoomName }),
     })
 
@@ -146,8 +156,9 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
 
   // グループメンバー取得
   const fetchMembers = async () => {
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/members`, {
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
     if (res.ok) {
       const data = await res.json()
@@ -159,9 +170,10 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const handleLeaveGroup = async () => {
     if (!window.confirm("本当にグループを退会しますか？")) return
   
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/members/me`, {
       method: "DELETE",
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
   
     if (res.ok) {
@@ -176,9 +188,10 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const handleDeleteGroup = async () => {
     if (!window.confirm("このグループを完全に削除しますか？")) return
   
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}`, {
       method: "DELETE",
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
   
     if (res.ok) {
@@ -212,7 +225,71 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     }
   }
 
+  // 古いメッセージ読み込み
+  const [isLoading, setIsLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+
+  const loadOlderMessages = async () => {
+    if (!roomId || isLoading || !hasMore || messages.length === 0) return
+  
+    setIsLoading(true)
+  
+    const token = localStorage.getItem("jwt_token")
+    const oldest = messages[0].created_at
+    const res = await fetch(`http://localhost:8081/messages/${roomId}?before=${oldest}&limit=30`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+  
+    const container = chatLogRef.current
+    const prevHeight = container?.scrollHeight ?? 0
+  
+    if (data.length === 0) {
+      setHasMore(false)
+  
+      // 最上部にピタッと止める
+      setTimeout(() => {
+        if (container) container.scrollTop = 0
+      }, 10)
+  
+      setIsLoading(false)
+      return
+    }
+  
+    setMessages((prev) => [...data, ...prev])
+  
+    setTimeout(() => {
+      if (container) {
+        const newHeight = container.scrollHeight
+        container.scrollTop = newHeight - prevHeight
+      }
+    }, 10)
+  
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
+    const container = chatLogRef.current
+    if (!container) return
+  
+    const handleScroll = () => {
+      if (container.scrollTop < 50 && !isLoading && hasMore) {
+        loadOlderMessages()
+      }
+    }
+  
+    container.addEventListener("scroll", handleScroll)
+    return () => container.removeEventListener("scroll", handleScroll)
+  }, [isLoading, hasMore, messages])
+  
+
+
   // スクロール位置を最下部に
+  useEffect(() => {
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView({ behavior: "auto" })
+    }
+  }, [messages])
   const scrollToBottom = () => {
     setTimeout(() => {
       chatLogRef.current?.scrollTo({
@@ -267,7 +344,12 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
         ) : (
           <div className="flex items-center gap-2"> {/* グループ名と編集ボタンをまとめる */}
             <h3 className="text-xl font-bold">
-              {isGroup ? `グループ: ${currentRoomName}` : `チャット相手: ${currentRoomName}`}
+              <span
+              className="truncate block max-w-[400px]"
+              title={currentRoomName} // ✅ ホバーで全文表示
+              >
+                {currentRoomName}
+              </span>
             </h3>
             {isGroup && (
               <>
@@ -320,37 +402,40 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     </div>
 
     <ul ref={chatLogRef} className="flex-1 flex flex-col overflow-y-auto border rounded p-2 space-y-1 bg-white">
-      {messages.map((msg) => {
-        const currentDate = formatDate(msg.created_at);
-        const showDate = currentDate !== lastRenderedDate;
-        lastRenderedDate = currentDate;
+    {messages.map((msg, index) => {
+      const currentDate = formatDate(msg.created_at)
+      const showDate = currentDate !== lastRenderedDate
+      lastRenderedDate = currentDate
 
-        return (
-          <div key={msg.id}>
-            {showDate && (
-              <li className="text-xs text-gray-500 text-center py-1"> {/* border-bを削除 */}
-                <div className="bg-gray-100 py-0.5 rounded-full inline-block px-2"> {/* 背景色とpaddingを追加 */}
-                  --- {currentDate} ---
-                </div>
-              </li>
-            )}
-            <li className={`flex ${msg.sender_id === userId ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`text-sm p-2 rounded max-w-[70%] break-words whitespace-pre-wrap ${
-                  msg.sender_id === userId
-                    ? "bg-blue-200 text-right" // 少し明るい青
-                    : "bg-gray-100 text-left"
-                }`}
-              >
-                <span>{msg.content}</span> {/* メッセージ本文を先に */}
-                <div className="text-xs text-gray-500 block mt-1"> {/* 下に移動、margin-topを追加 */}
-                  [{formatTime(msg.created_at)}] {msg.sender}
-                </div>
+      const isLast = index === messages.length - 1 // ← 最後の要素か判定
+
+      return (
+        <div key={msg.id}>
+          {showDate && (
+            <li className="text-xs text-gray-500 text-center py-1">
+              <div className="bg-gray-100 py-0.5 rounded-full inline-block px-2">
+                --- {currentDate} ---
               </div>
             </li>
-          </div>
-        );
-      })}
+          )}
+          <li
+            className={`flex ${msg.sender_id === userId ? "justify-end" : "justify-start"}`}
+            ref={isLast ? lastMessageRef : undefined} // ✅ 最後のメッセージに ref をつける
+          >
+            <div
+              className={`text-sm p-2 rounded max-w-[70%] break-words whitespace-pre-wrap ${
+                msg.sender_id === userId ? "bg-blue-200 text-right" : "bg-gray-100 text-left"
+              }`}
+            >
+              <span>{msg.content}</span>
+              <div className="text-xs text-gray-500 block mt-1">
+                [{formatTime(msg.created_at)}] {msg.sender}
+              </div>
+            </div>
+          </li>
+        </div>
+      )
+    })}
     </ul>
 
     <div className="mt-2">

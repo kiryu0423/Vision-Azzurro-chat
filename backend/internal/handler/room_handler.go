@@ -5,29 +5,27 @@ import (
 	"chat-app/internal/util"
 	"net/http"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 type RoomHandler struct {
-    RoomService *service.RoomService
-    UserService *service.UserService
+	RoomService *service.RoomService
+	UserService *service.UserService
 }
 
 func NewRoomHandler(roomService *service.RoomService, userService *service.UserService) *RoomHandler {
-    return &RoomHandler{
-        RoomService: roomService,
-        UserService: userService,
-    }
+	return &RoomHandler{
+		RoomService: roomService,
+		UserService: userService,
+	}
 }
 
 type CreateRoomRequest struct {
-	UserIDs     []uint `json:"user_ids"`      // 招待対象（1対1なら1件）
-	DisplayName string `json:"display_name"`  // グループ名（任意）
+	UserIDs     []uint `json:"user_ids"`
+	DisplayName string `json:"display_name"`
 }
 
-// ルーム作成
 func (h *RoomHandler) CreateRoom(c *gin.Context) {
 	var req CreateRoomRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -35,11 +33,13 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 		return
 	}
 
-	// ログイン中のユーザーID取得（セッションやJWTから）
-	session := sessions.Default(c)
-    currentUserID := session.Get("user_id").(uint)
+	currentUserIDAny, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	currentUserID := currentUserIDAny.(uint)
 
-	// --- 1対1チャットの場合 ---
 	if len(req.UserIDs) == 1 {
 		targetUserID := req.UserIDs[0]
 		roomID, err := h.RoomService.CreateOneToOneRoomIfNotExists(currentUserID, targetUserID)
@@ -51,8 +51,6 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 		return
 	}
 
-	// --- グループチャットの場合 ---
-	// 表示名が空なら「ユーザーA, ユーザーB...」形式にする
 	displayName := req.DisplayName
 	if displayName == "" {
 		userIDs := append(req.UserIDs, currentUserID)
@@ -70,104 +68,85 @@ func (h *RoomHandler) CreateRoom(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"room_id": roomID,
-		"display_name": displayName, // ← フロントに返す
+		"room_id":      roomID,
+		"display_name": displayName,
 	})
 }
 
-// ルーム一覧
 func (h *RoomHandler) ListRooms(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id")
-	if userID == nil {
-		c.JSON(401, gin.H{"error": "unauthorized"})
+	userIDAny, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-
-	rooms, err := h.RoomService.GetUserRoomsWithUnread(userID.(uint))
-	if err != nil {
-		c.JSON(500, gin.H{"error": "failed to fetch rooms"})
-		return
-	}
-
-	c.JSON(200, rooms)
-}
-
-func (h *RoomHandler) GetUserRooms(c *gin.Context) {
-	session := sessions.Default(c)
-    userID := session.Get("user_id").(uint)
+	userID := userIDAny.(uint)
 
 	rooms, err := h.RoomService.GetUserRoomsWithUnread(userID)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "failed to fetch rooms"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch rooms"})
 		return
 	}
 
-	c.JSON(200, rooms)
+	c.JSON(http.StatusOK, rooms)
 }
 
-// 既読管理
 func (h *RoomHandler) MarkRoomAsRead(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id")
-	if userID == nil {
-		c.JSON(401, gin.H{"error": "unauthorized"})
+	userIDAny, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	userID := userIDAny.(uint)
 
 	roomID := c.Param("room_id")
-
-	err := h.RoomService.MarkAsRead(userID.(uint), roomID)
+	err := h.RoomService.MarkAsRead(userID, roomID)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "failed to mark as read"})
-	return
-	}
-
-	c.JSON(200, gin.H{"status": "ok"})
-}
-
-// グループ名変更
-func (h *RoomHandler) UpdateRoomName(c *gin.Context) {
-	userID := sessions.Default(c).Get("user_id")
-	if userID == nil {
-		c.JSON(401, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to mark as read"})
 		return
 	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func (h *RoomHandler) UpdateRoomName(c *gin.Context) {
+	userIDAny, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userID := userIDAny.(uint)
 
 	roomID := c.Param("room_id")
 	var req struct {
 		DisplayName string `json:"display_name"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
-	err := h.RoomService.UpdateRoomName(userID.(uint), roomID, req.DisplayName)
+	err := h.RoomService.UpdateRoomName(userID, roomID, req.DisplayName)
 	if err != nil {
-		c.JSON(500, gin.H{"error": "update failed"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "update failed"})
 		return
 	}
 
-	c.JSON(200, gin.H{"status": "ok"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-// ルームメンバー取得
 func (h *RoomHandler) GetRoomMembers(c *gin.Context) {
 	roomID := c.Param("id")
 
-	// ユーザーID（認証が必要なら）
-	session := sessions.Default(c)
-	userID, ok := session.Get("user_id").(uint)
-	if !ok {
+	userIDAny, exists := c.Get("user_id")
+	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
+	userID := userIDAny.(uint)
 
-	// 所属確認（オプション）
 	parsedUUID, err := uuid.Parse(roomID)
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid room ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room ID"})
 		return
 	}
 	if err := h.RoomService.AuthorizeUser(userID, parsedUUID); err != nil {
@@ -175,7 +154,6 @@ func (h *RoomHandler) GetRoomMembers(c *gin.Context) {
 		return
 	}
 
-	// メンバー取得
 	members, err := h.RoomService.GetMembersByRoomID(roomID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get members"})
@@ -185,37 +163,44 @@ func (h *RoomHandler) GetRoomMembers(c *gin.Context) {
 	c.JSON(http.StatusOK, members)
 }
 
-// グループ退会
 func (h *RoomHandler) LeaveRoom(c *gin.Context) {
-	roomID := c.Param("room_id")
-	userID := sessions.Default(c).Get("user_id").(uint)
-
-	if err := h.RoomService.LeaveRoom(roomID, userID); err != nil {
-		c.JSON(500, gin.H{"error": "failed to leave room"})
+	userIDAny, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
-	c.JSON(200, gin.H{"status": "ok"})
+	userID := userIDAny.(uint)
+
+	roomID := c.Param("room_id")
+	if err := h.RoomService.LeaveRoom(roomID, userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to leave room"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-// グループ削除
 func (h *RoomHandler) DeleteRoom(c *gin.Context) {
-	roomID := c.Param("room_id")
-	userID := sessions.Default(c).Get("user_id").(uint)
+	userIDAny, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userID := userIDAny.(uint)
 
-	// 所属確認
+	roomID := c.Param("room_id")
 	parsedUUID, err := uuid.Parse(roomID)
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid room ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid room ID"})
 		return
 	}
 	if err := h.RoomService.AuthorizeUser(userID, parsedUUID); err != nil {
-		c.JSON(403, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized"})
 		return
 	}
 
 	if err := h.RoomService.DeleteRoom(roomID); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"status": "deleted"})
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
 }

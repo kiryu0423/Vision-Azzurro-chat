@@ -2,6 +2,7 @@ package main
 
 import (
 	"chat-app/internal/handler"
+	"chat-app/internal/infra"
 	"chat-app/internal/repository"
 	"chat-app/internal/router"
 	"chat-app/internal/service"
@@ -26,6 +27,8 @@ func main() {
 		panic("failed to connect to DB")
 	}
 
+	redisClient := infra.NewRedisClient()
+
 	userRepo := repository.NewUserRepository(db)
 	userService := service.NewUserService(db, userRepo)
 	userHandler := handler.NewUserHandler(userService)
@@ -37,9 +40,11 @@ func main() {
 	roomHandler := handler.NewRoomHandler(roomService, userService)
 	msgRepo := repository.NewMessageRepository(db)
 	msgHandler := handler.NewMessageHandler(msgRepo, roomService)
-	notifyHandler := handler.NewNotifyWSHandler()
-	wsHandler := handler.NewWebSocketHandler(msgRepo, roomService, notifyHandler)
-	wsNotifyHandler := handler.NewNotifyWSHandler()
+	// ✅ Redis対応済みの NotifyWSHandler
+	wsNotifyHandler := handler.NewNotifyWSHandler(redisClient)
+	// ✅ Redis対応済みの WebSocketHandler
+	wsHandler := handler.NewWebSocketHandler(msgRepo, roomService, wsNotifyHandler, redisClient)
+
 
 	r := router.SetupRouter(userHandler, authHandler, roomHandler, msgHandler, wsHandler, wsNotifyHandler)
 

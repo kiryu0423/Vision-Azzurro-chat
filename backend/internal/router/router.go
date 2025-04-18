@@ -4,8 +4,6 @@ import (
 	"chat-app/internal/handler"
 	"chat-app/internal/middleware"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,16 +20,46 @@ func SetupRouter(
 	// CORS
 	r.Use(middleware.CORSMiddleware())
 
-	// Session
-	store := cookie.NewStore([]byte("super-secret-key"))
-	r.Use(sessions.Sessions("chat_session", store))
+	// ✅ JWTで保護されたルーティンググループ
+	auth := r.Group("/", middleware.JWTAuthMiddleware())
+	{
+		auth.GET("/chat", func(c *gin.Context) {
+			c.HTML(200, "chat.html", nil)
+		})
 
-	// Routing
-	r.GET("/users", userHandler.ListUsers)
-	r.GET("/me", userHandler.Me)
+		auth.GET("/chat/:room_id", func(c *gin.Context) {
+			roomID := c.Param("room_id")
+			userName := c.GetString("user_name")
+
+			c.HTML(200, "ws.html", gin.H{
+				"RoomID":   roomID,
+				"UserName": userName,
+			})
+		})
+
+		auth.GET("/users", userHandler.ListUsers)
+		auth.GET("/me", userHandler.Me)
+
+		auth.GET("/messages/:room_id", msgHandler.GetMessages)
+
+		auth.POST("/rooms", roomHandler.CreateRoom)
+		auth.GET("/rooms", roomHandler.ListRooms)
+		auth.PUT("/rooms/:room_id/name", roomHandler.UpdateRoomName)
+		auth.GET("/rooms/:id/members", roomHandler.GetRoomMembers)
+
+		// 既読管理
+		auth.POST("/rooms/:room_id/read", roomHandler.MarkRoomAsRead)
+		// グループ退会
+		auth.DELETE("/rooms/:room_id/members/me", roomHandler.LeaveRoom)
+		// グループ削除
+		auth.DELETE("/rooms/:room_id", roomHandler.DeleteRoom)
+	}
+
+	// 認証不要
 	r.POST("/register", authHandler.Register)
 	r.POST("/login", authHandler.Login)
 	r.POST("/logout", authHandler.Logout)
+
 	r.GET("/login-page", func(c *gin.Context) {
 		c.HTML(200, "login.html", nil)
 	})
@@ -41,43 +69,6 @@ func SetupRouter(
 
 	r.GET("/ws", wsHandler.Handle)
 	r.GET("/ws-notify", wsNotifyHandler.Handle)
-
-	r.GET("/chat/:room_id", func(c *gin.Context) {
-		session := sessions.Default(c)
-		userName := session.Get("user_name")
-		if userName == nil {
-			c.Redirect(302, "/login-page")
-			return
-		}
-		c.HTML(200, "ws.html", gin.H{
-			"RoomID":   c.Param("room_id"),
-			"UserName": userName,
-		})
-	})
-
-	r.GET("/messages/:room_id", msgHandler.GetMessages)
-	r.POST("/rooms", roomHandler.CreateRoom)
-	r.GET("/rooms", roomHandler.ListRooms)
-	r.PUT("/rooms/:room_id/name", roomHandler.UpdateRoomName)
-
-	r.GET("/rooms/:id/members", roomHandler.GetRoomMembers)
-
-	r.GET("/chat", func(c *gin.Context) {
-		session := sessions.Default(c)
-		if session.Get("user_id") == nil {
-			c.Redirect(302, "/login-page")
-			return
-		}
-		c.HTML(200, "chat.html", nil)
-	})
-
-	// 既読管理
-	r.POST("/rooms/:room_id/read", roomHandler.MarkRoomAsRead)
-
-	// グループ退会
-	r.DELETE("/rooms/:room_id/members/me", roomHandler.LeaveRoom)
-	// グループ削除
-	r.DELETE("/rooms/:room_id", roomHandler.DeleteRoom)
 
 	return r
 }

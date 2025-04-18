@@ -26,14 +26,18 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
 
   const createOneOnOne = async (userId: number, userName: string) => {
+    const token = localStorage.getItem("jwt_token")
+
     const res = await fetch("http://localhost:8081/rooms", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
-        user_ids: [userId],
+        user_ids: [userId], // または selectedUserIds
         display_name: ""
-      })
+      }),
     })
 
     const data = await res.json()
@@ -55,12 +59,16 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
       return
     }
 
+    const token = localStorage.getItem("jwt_token")
+
     const res = await fetch("http://localhost:8081/rooms", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
-        user_ids: selectedUserIds,
+        user_ids: [userId], // または selectedUserIds
         display_name: ""
       }),
     })
@@ -78,7 +86,14 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
   // ルーム一覧の取得
   useEffect(() => {
-    fetch("http://localhost:8081/rooms", { credentials: "include" })
+    const token = localStorage.getItem("jwt_token")
+    if (!token) return
+
+    fetch("http://localhost:8081/rooms", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         const sorted = data.sort((a, b) =>
@@ -93,7 +108,14 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   // 定期的にルーム一覧を再取得（ポーリング）
   useEffect(() => {
     const interval = setInterval(() => {
-      fetch("http://localhost:8081/rooms", { credentials: "include" })
+      const token = localStorage.getItem("jwt_token")
+      if (!token) return
+
+      fetch("http://localhost:8081/rooms", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      })
         .then((res) => res.json())
         .then((data) => {
           setRooms(prevRooms => mergeRoomList(data, prevRooms))
@@ -118,29 +140,33 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
   // 未読管理
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:8081/ws-notify")
+    const token = localStorage.getItem("jwt_token")
+    const socket = new WebSocket(`ws://localhost:8081/ws-notify?token=${token}`)
   
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
     
       setRooms((prevRooms) => {
-        const updated = prevRooms.map((room) =>
+        const updatedRooms = prevRooms.map((room) =>
           room.room_id === data.room_id
             ? {
                 ...room,
                 last_message_at: data.created_at,
                 unread_count:
-                  data.sender_id === userId || data.room_id === currentRoomIdRef.current || data.from_self
+                  data.sender_id === userId ||
+                  data.room_id === currentRoomIdRef.current ||
+                  data.from_self
                     ? room.unread_count
                     : (room.unread_count ?? 0) + 1,
               }
             : room
         )
-    
-        return [...updated].sort((a, b) =>
-          new Date(b.last_message_at ?? 0).getTime() -
-          new Date(a.last_message_at ?? 0).getTime()
-        )
+      
+        // そのルームを先頭に移動（他の順序を変えない）
+        const movedToTop = updatedRooms.find((r) => r.room_id === data.room_id)
+        const others = updatedRooms.filter((r) => r.room_id !== data.room_id)
+      
+        return movedToTop ? [movedToTop, ...others] : updatedRooms
       })
     }
   
@@ -162,28 +188,12 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
     return fetched.map(fetchedRoom => {
       const currentRoom = currentMap.get(fetchedRoom.room_id)
   
-      let unread_count = currentRoom?.unread_count ?? 0
-  
-      // 現在のルームならリセット
-      if (fetchedRoom.room_id === currentRoomIdRef.current) {
-        unread_count = 0
-      }
-      // それ以外でメッセージが更新されていればカウントアップ
-      else if (
-        currentRoom &&
-        fetchedRoom.last_message_at &&
-        fetchedRoom.last_message_at !== currentRoom.last_message_at
-      ) {
-        unread_count += 1
-      }
-  
       return {
         ...fetchedRoom,
-        unread_count,
+        unread_count: currentRoom?.unread_count ?? 0, // ✅ ポーリングでは上書きしない
       }
     }).sort((a, b) =>
-      new Date(b.last_message_at ?? 0).getTime() -
-      new Date(a.last_message_at ?? 0).getTime()
+      new Date(b.last_message_at ?? 0).getTime() - new Date(a.last_message_at ?? 0).getTime()
     )
   }
 

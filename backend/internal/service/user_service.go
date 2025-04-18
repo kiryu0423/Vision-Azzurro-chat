@@ -26,7 +26,7 @@ func (s *UserService) GetSelectableUsers(currentUserID uint) ([]model.User, erro
 func (s *UserService) GetUserNames(userIDs []uint) ([]string, error) {
 	var names []string
 	if err := s.DB.
-		Table("users").
+		Table("members").
 		Select("name").
 		Where("id IN ?", userIDs).
 		Pluck("name", &names).Error; err != nil {

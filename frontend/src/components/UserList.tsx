@@ -12,16 +12,30 @@ type UserListProps = {
 }
 
 export default function UserList({
-    selectedUserIds,
-    setSelectedUserIds,
-    onCreateOneOnOne,
-  }: UserListProps) {
+  selectedUserIds,
+  setSelectedUserIds,
+  onCreateOneOnOne,
+}: UserListProps) {
   const [users, setUsers] = useState<User[]>([])
 
   useEffect(() => {
-    fetch("http://localhost:8081/users", { credentials: "include" })
-      .then((res) => res.json())
+    const token = localStorage.getItem("jwt_token")
+    if (!token) return // トークンが無い場合は何もしない（必要ならリダイレクト）
+
+    fetch("http://localhost:8081/users", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("unauthorized")
+        return res.json()
+      })
       .then((data) => setUsers(data || []))
+      .catch((err) => {
+        console.error("ユーザー取得エラー:", err)
+        // 例: window.location.href = "/"
+      })
   }, [])
 
   const handleCheck = (id: number, checked: boolean) => {
@@ -42,10 +56,7 @@ export default function UserList({
               checked={selectedUserIds.includes(user.id)}
               onChange={(e) => handleCheck(user.id, e.target.checked)}
             />
-            <span
-              className="truncate block max-w-[120px]"
-              title={user.name}
-            >
+            <span className="truncate block max-w-[120px]" title={user.name}>
               {user.name}
             </span>
           </label>
