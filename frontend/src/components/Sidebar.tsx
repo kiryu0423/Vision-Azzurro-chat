@@ -145,28 +145,28 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
-      console.log("受信した通知:", data)
-      console.log("room_idの型:", typeof data.room_id)
-
     
       setRooms((prevRooms) => {
-        const updated = prevRooms.map((room) =>
+        const updatedRooms = prevRooms.map((room) =>
           room.room_id === data.room_id
             ? {
                 ...room,
                 last_message_at: data.created_at,
                 unread_count:
-                  data.sender_id === userId || data.room_id === currentRoomIdRef.current || data.from_self
+                  data.sender_id === userId ||
+                  data.room_id === currentRoomIdRef.current ||
+                  data.from_self
                     ? room.unread_count
                     : (room.unread_count ?? 0) + 1,
               }
             : room
         )
-    
-        return [...updated].sort((a, b) =>
-          new Date(b.last_message_at ?? 0).getTime() -
-          new Date(a.last_message_at ?? 0).getTime()
-        )
+      
+        // そのルームを先頭に移動（他の順序を変えない）
+        const movedToTop = updatedRooms.find((r) => r.room_id === data.room_id)
+        const others = updatedRooms.filter((r) => r.room_id !== data.room_id)
+      
+        return movedToTop ? [movedToTop, ...others] : updatedRooms
       })
     }
   
