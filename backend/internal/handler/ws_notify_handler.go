@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"chat-app/internal/util"
 	"context"
 	"fmt"
 	"log"
@@ -28,12 +29,19 @@ var upgrade = websocket.Upgrader{
 }
 
 func (h *NotifyWSHandler) Handle(c *gin.Context) {
-	userIDAny, ok := c.Get("user_id")
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+
+	// トークンをクエリから取得
+	tokenStr := c.Query("token")
+	if tokenStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
 		return
 	}
-	userID := userIDAny.(uint)
+
+	userID, _, err := util.ValidateJWTAndExtract(tokenStr)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		return
+	}
 
 	conn, err := upgrade.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

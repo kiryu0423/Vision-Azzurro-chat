@@ -171,7 +171,7 @@ func (r *RoomRepository) GetRoomMembers(roomID string) ([]dto.UserSummary, error
 	var users []dto.UserSummary
 	err := r.DB.Raw(`
 		SELECT u.id, u.name
-		FROM users u
+		FROM members u
 		JOIN room_members rm ON rm.user_id = u.id
 		WHERE rm.room_id = ?
 		ORDER BY u.name

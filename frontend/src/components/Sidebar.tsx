@@ -140,10 +140,14 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
   // 未読管理
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:8081/ws-notify")
+    const token = localStorage.getItem("jwt_token")
+    const socket = new WebSocket(`ws://localhost:8081/ws-notify?token=${token}`)
   
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
+      console.log("受信した通知:", data)
+      console.log("room_idの型:", typeof data.room_id)
+
     
       setRooms((prevRooms) => {
         const updated = prevRooms.map((room) =>

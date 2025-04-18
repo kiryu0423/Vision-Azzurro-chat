@@ -81,6 +81,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     ws.onmessage = (event) => {
       const msg: Message & { from_self?: boolean } = JSON.parse(event.data)
 
+
       // from_self でなければ JST 補正
       if (!msg.from_self) {
         const date = new Date(msg.created_at)
@@ -112,10 +113,12 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const notifySocketRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const notifyWS = new WebSocket("ws://localhost:8081/ws-notify")
+    const token = localStorage.getItem("jwt_token")
+    if (!roomId || !token) return
+    const notifyWS = new WebSocket(`ws://localhost:8081/ws-notify?token=${token}`)
     notifySocketRef.current = notifyWS
     return () => notifyWS.close()
-  }, [])
+  }, [roomId])
 
   // ルーム名を編集
   const handleRoomNameUpdate = async () => {
