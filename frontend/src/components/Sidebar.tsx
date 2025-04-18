@@ -96,7 +96,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
     })
       .then((res) => res.json())
       .then((data) => {
-        const sorted = data.sort((a, b) =>
+        const sorted: Room[] = (data as Room[]).sort((a: Room, b: Room) =>
           new Date(b.last_message_at ?? 0).getTime() -
           new Date(a.last_message_at ?? 0).getTime()
         )
