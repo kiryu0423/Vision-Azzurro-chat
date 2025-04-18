@@ -26,14 +26,18 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
 
   const createOneOnOne = async (userId: number, userName: string) => {
+    const token = localStorage.getItem("jwt_token")
+
     const res = await fetch("http://localhost:8081/rooms", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
-        user_ids: [userId],
+        user_ids: [userId], // または selectedUserIds
         display_name: ""
-      })
+      }),
     })
 
     const data = await res.json()
@@ -55,12 +59,16 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
       return
     }
 
+    const token = localStorage.getItem("jwt_token")
+
     const res = await fetch("http://localhost:8081/rooms", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
       body: JSON.stringify({
-        user_ids: selectedUserIds,
+        user_ids: [userId], // または selectedUserIds
         display_name: ""
       }),
     })
@@ -78,7 +86,14 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
   // ルーム一覧の取得
   useEffect(() => {
-    fetch("http://localhost:8081/rooms", { credentials: "include" })
+    const token = localStorage.getItem("jwt_token")
+    if (!token) return
+
+    fetch("http://localhost:8081/rooms", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         const sorted = data.sort((a, b) =>
@@ -93,7 +108,14 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   // 定期的にルーム一覧を再取得（ポーリング）
   useEffect(() => {
     const interval = setInterval(() => {
-      fetch("http://localhost:8081/rooms", { credentials: "include" })
+      const token = localStorage.getItem("jwt_token")
+      if (!token) return
+
+      fetch("http://localhost:8081/rooms", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      })
         .then((res) => res.json())
         .then((data) => {
           setRooms(prevRooms => mergeRoomList(data, prevRooms))

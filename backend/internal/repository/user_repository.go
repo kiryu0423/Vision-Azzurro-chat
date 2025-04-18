@@ -27,7 +27,8 @@ func (r *UserRepository) FindByID(id uint) (*model.User, error) {
 
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 	var user model.User
-	err := r.DB.Where("email = ?", email).First(&user).Error
+	err := r.DB.Table("members").Where("email = ?", email).First(&user).Error
+
 	return &user, err
 }
 

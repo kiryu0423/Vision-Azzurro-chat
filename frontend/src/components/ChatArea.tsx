@@ -44,23 +44,28 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     if (!roomId) return
 
     // 過去ログ取得
-    fetch(`http://localhost:8081/messages/${roomId}?limit=30`, { credentials: "include" })
-    .then((res) => res.json())
-    .then((data) => {
-      setMessages(data || [])
-      setHasMore(data.length === 30)
+    const token = localStorage.getItem("jwt_token")
+    if (!token) return
+    fetch(`http://localhost:8081/messages/${roomId}?limit=30`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
     })
-
+      .then((res) => res.json())
+      .then((data) => {
+        setMessages(data || [])
+        setHasMore(data.length === 30)
+    })
 
     // ルームの既読更新
     fetch(`http://localhost:8081/rooms/${roomId}/read`, {
       method: "POST",
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
 
     // WebSocket接続
     socketRef.current?.close()
-    const ws = new WebSocket(`ws://localhost:8081/ws?room=${roomId}`)
+    const ws = new WebSocket(`ws://localhost:8081/ws?room=${roomId}&token=${token}`)
     socketRef.current = ws
 
     // Websocket接続判定
@@ -89,7 +94,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
         // ✅ 最新のメッセージを受信後に既読更新
         fetch(`http://localhost:8081/rooms/${roomId}/read`, {
           method: "POST",
-          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
         })
 
         return updated
@@ -123,10 +128,14 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
       alert("グループ名は30文字以内で入力してください")
       return
     }
+
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/name`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ display_name: newRoomName }),
     })
 
@@ -144,8 +153,9 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
 
   // グループメンバー取得
   const fetchMembers = async () => {
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/members`, {
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
     if (res.ok) {
       const data = await res.json()
@@ -157,9 +167,10 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const handleLeaveGroup = async () => {
     if (!window.confirm("本当にグループを退会しますか？")) return
   
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}/members/me`, {
       method: "DELETE",
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
   
     if (res.ok) {
@@ -174,9 +185,10 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   const handleDeleteGroup = async () => {
     if (!window.confirm("このグループを完全に削除しますか？")) return
   
+    const token = localStorage.getItem("jwt_token")
     const res = await fetch(`http://localhost:8081/rooms/${roomId}`, {
       method: "DELETE",
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
   
     if (res.ok) {
@@ -216,31 +228,40 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
 
   const loadOlderMessages = async () => {
     if (!roomId || isLoading || !hasMore || messages.length === 0) return
-
+  
     setIsLoading(true)
-
+  
+    const token = localStorage.getItem("jwt_token")
     const oldest = messages[0].created_at
     const res = await fetch(`http://localhost:8081/messages/${roomId}?before=${oldest}&limit=30`, {
-      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
-
-    if (data.length === 0) {
-      setHasMore(false)
-    }
-
+  
     const container = chatLogRef.current
     const prevHeight = container?.scrollHeight ?? 0
-
+  
+    if (data.length === 0) {
+      setHasMore(false)
+  
+      // 最上部にピタッと止める
+      setTimeout(() => {
+        if (container) container.scrollTop = 0
+      }, 10)
+  
+      setIsLoading(false)
+      return
+    }
+  
     setMessages((prev) => [...data, ...prev])
-
+  
     setTimeout(() => {
       if (container) {
         const newHeight = container.scrollHeight
         container.scrollTop = newHeight - prevHeight
       }
     }, 10)
-
+  
     setIsLoading(false)
   }
 

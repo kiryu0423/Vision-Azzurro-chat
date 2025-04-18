@@ -4,7 +4,6 @@ import (
 	"chat-app/internal/service"
 	"net/http"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,39 +12,56 @@ type UserHandler struct {
 }
 
 func NewUserHandler(userService *service.UserService) *UserHandler {
-    return &UserHandler{UserService: userService}
+	return &UserHandler{UserService: userService}
 }
 
+// ログイン中ユーザー以外のユーザー一覧を返す
 func (h *UserHandler) ListUsers(c *gin.Context) {
-    session := sessions.Default(c)
-    idRaw := session.Get("user_id")
-    userID, ok := idRaw.(uint)
-    if !ok {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-        return
-    }
+	userIDAny, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
 
-    users, err := h.UserService.GetSelectableUsers(userID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch users"})
-        return
-    }
+	userID, ok := userIDAny.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user ID"})
+		return
+	}
 
-    c.JSON(http.StatusOK, users)
+	users, err := h.UserService.GetSelectableUsers(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch users"})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
 }
 
+// 現在ログイン中のユーザー情報を返す
 func (h *UserHandler) Me(c *gin.Context) {
-    session := sessions.Default(c)
-    userID := session.Get("user_id")
-    userName := session.Get("user_name")
+	userIDAny, idExists := c.Get("user_id")
+	userNameAny, nameExists := c.Get("user_name")
 
-    if userID == nil || userName == nil {
-        c.JSON(401, gin.H{"error": "unauthenticated"})
-        return
-    }
+	if !idExists || !nameExists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
+		return
+	}
 
-    c.JSON(200, gin.H{
-        "user_id": userID,
-        "user_name": userName,
-    })
+	userID, ok := userIDAny.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	userName, ok := userNameAny.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user name"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":   userID,
+		"user_name": userName,
+	})
 }

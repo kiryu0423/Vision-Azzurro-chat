@@ -15,11 +15,16 @@ export default function Login() {
     const res = await fetch("http://localhost:8081/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ email, password }),
     })
 
     if (res.ok) {
+      const data = await res.json()
+
+      // ✅ JWTを localStorage に保存
+      localStorage.setItem("jwt_token", data.token)
+
+      // ✅ チャット画面に遷移
       window.location.href = "/chat"
     } else {
       setError("ログインに失敗しました")
