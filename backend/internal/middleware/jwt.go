@@ -2,13 +2,22 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("your-secret-key") // 本番は .env から
+var jwtSecret []byte
+
+func init() {
+	key := os.Getenv("JWT_SECRET")
+	if key == "" {
+		panic("JWT_SECRET is not set")
+	}
+	jwtSecret = []byte(key)
+}
 
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
