@@ -16,7 +16,7 @@ export default function Chat() {
       return
     }
 
-    fetch("${import.meta.env.VITE_API_URL}/me", {
+    fetch(`${import.meta.env.VITE_API_URL}/me`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },

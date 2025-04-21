@@ -32,7 +32,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   const createOneOnOne = async (userId: number, userName: string) => {
     const token = localStorage.getItem("jwt_token")
 
-    const res = await fetch("${import.meta.env.VITE_API_URL}/rooms", {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/rooms`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -65,7 +65,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
     const token = localStorage.getItem("jwt_token")
 
-    const res = await fetch("${import.meta.env.VITE_API_URL}/rooms", {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/rooms`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -93,7 +93,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
     const token = localStorage.getItem("jwt_token")
     if (!token) return
 
-    fetch("${import.meta.env.VITE_API_URL}/rooms", {
+    fetch(`${import.meta.env.VITE_API_URL}/rooms`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -115,7 +115,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
       const token = localStorage.getItem("jwt_token")
       if (!token) return
 
-      fetch("${import.meta.env.VITE_API_URL}/rooms", {
+      fetch(`${import.meta.env.VITE_API_URL}/rooms`, {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
