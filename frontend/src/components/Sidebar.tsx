@@ -72,7 +72,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
         "Authorization": `Bearer ${token}`,
       },
       body: JSON.stringify({
-        user_ids: [selectedUserIds],
+        user_ids: selectedUserIds,
         display_name: ""
       }),
     })
