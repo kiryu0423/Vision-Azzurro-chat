@@ -4,6 +4,7 @@ import (
 	"chat-app/internal/dto"
 	"chat-app/internal/model"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -182,7 +183,37 @@ func (r *RoomRepository) GetRoomMembers(roomID string) ([]dto.UserSummary, error
 
 // ルーム退会
 func (r *RoomRepository) RemoveMember(roomID string, userID uint) error {
-	return r.DB.Where("room_id = ? AND user_id = ?", roomID, userID).Delete(&model.RoomMember{}).Error
+	return r.DB.Transaction(func(tx *gorm.DB) error {
+		// 1. 削除
+		if err := tx.Delete(&model.RoomMember{}, "room_id = ? AND user_id = ?", roomID, userID).Error; err != nil {
+			return err
+		}
+
+		// 2. 残りの人数チェック
+		var count int64
+		if err := tx.Model(&model.RoomMember{}).Where("room_id = ?", roomID).Count(&count).Error; err != nil {
+			return err
+		}
+
+		// 3. ルーム削除 or name 更新
+		if count == 0 {
+			// 誰もいないなら部屋も削除
+			if err := tx.Delete(&model.Room{}, "id = ?", roomID).Error; err != nil {
+				return err
+			}
+		} else {
+			// name の "_<userID>" を削除
+			if err := tx.Exec(`
+				UPDATE rooms
+				SET name = REPLACE(name, ?, '')
+				WHERE id = ? AND is_group = true
+			`, fmt.Sprintf("_%d", userID), roomID).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // グループ削除
