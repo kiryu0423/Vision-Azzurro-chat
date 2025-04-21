@@ -9,14 +9,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret []byte
-
-func init() {
+func getJWTSecret() []byte {
 	key := os.Getenv("JWT_SECRET")
 	if key == "" {
 		panic("JWT_SECRET is not set")
 	}
-	jwtSecret = []byte(key)
+	return []byte(key)
 }
 
 func JWTAuthMiddleware() gin.HandlerFunc {
@@ -30,7 +28,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			return jwtSecret, nil
+			return getJWTSecret(), nil
 		})
 		if err != nil || !token.Valid {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
