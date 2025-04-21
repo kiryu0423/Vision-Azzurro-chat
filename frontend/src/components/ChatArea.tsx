@@ -60,12 +60,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
       .then((data) => {
         setMessages(data || [])
         setHasMore(data.length === 30)
-    })
-
-    // ルームの既読更新
-    fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/read`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
+        markAsRead(roomId)
     })
 
     // WebSocket接続
@@ -271,6 +266,16 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     }, 10)
   
     setIsLoading(false)
+    markAsRead(roomId)
+  }
+
+  const markAsRead = (roomId: string) => {
+    const token = localStorage.getItem("jwt_token")
+    if (!token) return
+    fetch(`${httpApiUrl}/rooms/${roomId}/read`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    })
   }
 
   useEffect(() => {
@@ -303,6 +308,18 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
       })
     }, 10)
   }
+
+  useEffect(() => {
+    const token = localStorage.getItem("jwt_token")
+    if (!roomId || !token) return
+  
+    fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/read`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  }, [roomId])  
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toISOString().slice(0, 10)
