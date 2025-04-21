@@ -15,9 +15,11 @@ import (
 
 func main() {
 
-	err := godotenv.Load()
-	if err != nil {
-		panic("failed to load .env file")
+	if os.Getenv("FLY_REGION") == "" {
+		err := godotenv.Load()
+		if err != nil {
+			panic("failed to load .env file")
+		}
 	}
 
 	dsn := os.Getenv("DB_URL")

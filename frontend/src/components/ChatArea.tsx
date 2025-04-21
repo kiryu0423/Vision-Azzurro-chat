@@ -39,6 +39,11 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   // グループ名の最大文字数
   const maxGroupNameLength = 30
 
+  // HTTPベースのAPI URL（例: https://backend.fly.dev）
+  const httpApiUrl = import.meta.env.VITE_API_URL
+  // WebSocketのURLに変換（https → wss, http → ws）
+  const wsUrl = httpApiUrl.replace(/^http/, "ws")
+
   // メッセージ取得 + WebSocket接続
   useEffect(() => {
     if (!roomId) return
@@ -46,7 +51,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     // 過去ログ取得
     const token = localStorage.getItem("jwt_token")
     if (!token) return
-    fetch(`http://localhost:8081/messages/${roomId}?limit=30`, {
+    fetch(`${import.meta.env.VITE_API_URL}/messages/${roomId}?limit=30`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -58,14 +63,14 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     })
 
     // ルームの既読更新
-    fetch(`http://localhost:8081/rooms/${roomId}/read`, {
+    fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/read`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     })
 
     // WebSocket接続
     socketRef.current?.close()
-    const ws = new WebSocket(`ws://localhost:8081/ws?room=${roomId}&token=${token}`)
+    const ws = new WebSocket(`${wsUrl}/ws?room=${roomId}&token=${token}`)
     socketRef.current = ws
 
     // Websocket接続判定
@@ -93,7 +98,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
         const updated = [...prev, msg]
 
         // ✅ 最新のメッセージを受信後に既読更新
-        fetch(`http://localhost:8081/rooms/${roomId}/read`, {
+        fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/read`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -115,7 +120,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   useEffect(() => {
     const token = localStorage.getItem("jwt_token")
     if (!roomId || !token) return
-    const notifyWS = new WebSocket(`ws://localhost:8081/ws-notify?token=${token}`)
+    const notifyWS = new WebSocket(`${wsUrl}/ws-notify?token=${token}`)
     notifySocketRef.current = notifyWS
     return () => notifyWS.close()
   }, [roomId])
@@ -133,7 +138,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     }
 
     const token = localStorage.getItem("jwt_token")
-    const res = await fetch(`http://localhost:8081/rooms/${roomId}/name`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/name`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -157,7 +162,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   // グループメンバー取得
   const fetchMembers = async () => {
     const token = localStorage.getItem("jwt_token")
-    const res = await fetch(`http://localhost:8081/rooms/${roomId}/members`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/members`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     if (res.ok) {
@@ -171,7 +176,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     if (!window.confirm("本当にグループを退会しますか？")) return
   
     const token = localStorage.getItem("jwt_token")
-    const res = await fetch(`http://localhost:8081/rooms/${roomId}/members/me`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}/members/me`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -189,7 +194,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
     if (!window.confirm("このグループを完全に削除しますか？")) return
   
     const token = localStorage.getItem("jwt_token")
-    const res = await fetch(`http://localhost:8081/rooms/${roomId}`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/rooms/${roomId}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -236,7 +241,7 @@ export default function ChatArea({ roomId, roomName, userId, isGroup }: ChatArea
   
     const token = localStorage.getItem("jwt_token")
     const oldest = messages[0].created_at
-    const res = await fetch(`http://localhost:8081/messages/${roomId}?before=${oldest}&limit=30`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/messages/${roomId}?before=${oldest}&limit=30`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()

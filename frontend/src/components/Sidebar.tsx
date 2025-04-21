@@ -24,11 +24,15 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null)
   const [showGroupCreator, setShowGroupCreator] = useState(false)
 
+  // HTTPベースのAPI URL（例: https://backend.fly.dev）
+  const httpApiUrl = import.meta.env.VITE_API_URL
+  // WebSocketのURLに変換（https → wss, http → ws）
+  const wsUrl = httpApiUrl.replace(/^http/, "ws")
 
   const createOneOnOne = async (userId: number, userName: string) => {
     const token = localStorage.getItem("jwt_token")
 
-    const res = await fetch("http://localhost:8081/rooms", {
+    const res = await fetch("${import.meta.env.VITE_API_URL}/rooms", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -61,7 +65,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
     const token = localStorage.getItem("jwt_token")
 
-    const res = await fetch("http://localhost:8081/rooms", {
+    const res = await fetch("${import.meta.env.VITE_API_URL}/rooms", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -89,7 +93,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
     const token = localStorage.getItem("jwt_token")
     if (!token) return
 
-    fetch("http://localhost:8081/rooms", {
+    fetch("${import.meta.env.VITE_API_URL}/rooms", {
       headers: {
         "Authorization": `Bearer ${token}`,
       },
@@ -111,7 +115,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
       const token = localStorage.getItem("jwt_token")
       if (!token) return
 
-      fetch("http://localhost:8081/rooms", {
+      fetch("${import.meta.env.VITE_API_URL}/rooms", {
         headers: {
           "Authorization": `Bearer ${token}`,
         },
@@ -141,7 +145,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   // 未読管理
   useEffect(() => {
     const token = localStorage.getItem("jwt_token")
-    const socket = new WebSocket(`ws://localhost:8081/ws-notify?token=${token}`)
+    const socket = new WebSocket(`${wsUrl}/ws-notify?token=${token}`)
   
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
