@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -111,6 +112,9 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
 			Sender:   userName,
 			Content:  string(msgBytes),
 		}
+
+		loc, _ := time.LoadLocation("Asia/Tokyo")
+		msg.CreatedAt = time.Now().In(loc)
 
 		if err := h.MessageRepo.SaveMessage(msg); err != nil {
 			fmt.Println("DB保存失敗:", err)
