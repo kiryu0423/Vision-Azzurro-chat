@@ -1,0 +1,29 @@
+# 🔒 セキュリティ：環境変数ファイル
+.env
+.env.*
+*.local
+
+# ⚙️ エディタ・開発環境
+.vscode/
+.idea/
+*.swp
+
+# 🛠️ ビルド成果物
+bin/
+*.out
+*.exe
+*.log
+
+# 🧪 テスト・ドキュメント
+test/
+docs/
+
+# 🧹 Git情報
+.git/
+.gitignore
+
+# 📦 Goモジュールのキャッシュ（不要な場合）
+vendor/
+
+# 🚫 フロントエンド（本番Dockerでは不要）
+../frontend/

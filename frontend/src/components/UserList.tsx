@@ -22,7 +22,7 @@ export default function UserList({
     const token = localStorage.getItem("jwt_token")
     if (!token) return // トークンが無い場合は何もしない（必要ならリダイレクト）
 
-    fetch("http://localhost:8081/users", {
+    fetch(`${import.meta.env.VITE_API_URL}/users`, {
       headers: {
         "Authorization": `Bearer ${token}`,
       },

@@ -2,15 +2,19 @@ package infra
 
 import (
 	"context"
+	"log"
+	"os"
+
 	"github.com/redis/go-redis/v9"
 )
 
 var Ctx = context.Background()
 
 func NewRedisClient() *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // Redisのアドレス
-		Password: "",               // パスワード（なければ空文字）
-		DB:       0,                // デフォルトDB
-	})
+	opt, err := redis.ParseURL(os.Getenv("REDIS_URL"))
+	if err != nil {
+		log.Fatalf("invalid redis URL: %v", err)
+	}
+	return redis.NewClient(opt)
+
 }
