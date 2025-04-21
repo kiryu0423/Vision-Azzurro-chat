@@ -65,7 +65,18 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
-
+    
+      // ✅ 表示中のルームに対しては既読処理を送る
+      if (data.room_id === currentRoomIdRef.current) {
+        const token = localStorage.getItem("jwt_token")
+        fetch(`${import.meta.env.VITE_API_URL}/rooms/${data.room_id}/read`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      }
+    
       setRooms((prevRooms) => {
         const updatedRooms = prevRooms.map((room) =>
           room.room_id === data.room_id
@@ -82,10 +93,10 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
               }
             : room
         )
-
+    
         const movedToTop = updatedRooms.find((r) => r.room_id === data.room_id)
         const others = updatedRooms.filter((r) => r.room_id !== data.room_id)
-
+    
         return movedToTop ? [movedToTop, ...others] : updatedRooms
       })
     }
