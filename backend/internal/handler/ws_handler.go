@@ -46,14 +46,12 @@ func NewWebSocketHandler(messageRepo *repository.MessageRepository, roomService 
 }
 
 func (h *WebSocketHandler) Handle(c *gin.Context) {
-	// ✅ トークンをクエリから取得
 	tokenStr := c.Query("token")
 	if tokenStr == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
 		return
 	}
 
-	// ✅ JWT検証（user_id, user_name を取り出す）
 	userID, userName, err := util.ValidateJWTAndExtract(tokenStr)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
@@ -120,20 +118,20 @@ func (h *WebSocketHandler) Handle(c *gin.Context) {
 			fmt.Println("DB保存失敗:", err)
 		}
 
-		notifyMsg := map[string]interface{}{
-			"room_id":    msg.RoomID,
-			"sender_id":  msg.SenderID,
-			"sender":     msg.Sender,
-			"content":    msg.Content,
-			"created_at": msg.CreatedAt,
-		}
-
+		// 🔔 通知送信（送信者も含めて全員）
 		members, err := h.RoomService.GetMembersByRoomID(roomID.String())
 		if err == nil {
 			for _, m := range members {
-				if m.ID != msg.SenderID {
-					notify.PublishToUser(h.RedisClient, m.ID, notifyMsg)
+				notifyMsg := map[string]interface{}{
+					"room_id":    msg.RoomID,
+					"sender_id":  msg.SenderID,
+					"sender":     msg.Sender,
+					"content":    msg.Content,
+					"last_message": msg.Content,
+					"created_at": msg.CreatedAt.Format(time.RFC3339),
+					"from_self":  m.ID == msg.SenderID,
 				}
+				notify.PublishToUser(h.RedisClient, m.ID, notifyMsg)
 			}
 		}
 

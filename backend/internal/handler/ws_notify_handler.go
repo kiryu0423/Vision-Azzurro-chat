@@ -3,6 +3,7 @@ package handler
 import (
 	"chat-app/internal/util"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,8 +30,6 @@ var upgrade = websocket.Upgrader{
 }
 
 func (h *NotifyWSHandler) Handle(c *gin.Context) {
-
-	// トークンをクエリから取得
 	tokenStr := c.Query("token")
 	if tokenStr == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing token"})
@@ -49,11 +48,8 @@ func (h *NotifyWSHandler) Handle(c *gin.Context) {
 	}
 
 	h.UserClients[userID] = conn
-
-	// Redis Subscribe 開始
 	go h.subscribe(userID, conn)
 
-	// クライアントが切断するまで受信を無視して維持
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {
@@ -76,4 +72,14 @@ func (h *NotifyWSHandler) subscribe(userID uint, conn *websocket.Conn) {
 			break
 		}
 	}
+}
+
+// 🔔 ユーザーに通知を送信する補助関数
+func PublishToUser(redisClient *redis.Client, userID uint, payload map[string]interface{}) error {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	channel := fmt.Sprintf("user:%d", userID)
+	return redisClient.Publish(context.Background(), channel, data).Err()
 }
