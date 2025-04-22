@@ -9,6 +9,7 @@ type Room = {
   is_group: boolean
   last_message_at?: string
   unread_count?: number
+  last_message?: string
 }
 
 type SidebarProps = {
@@ -25,8 +26,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   const httpApiUrl = import.meta.env.VITE_API_URL
   const wsUrl = httpApiUrl.replace(/^http/, "ws")
 
-  // 初回のみルーム一覧を取得
-  useEffect(() => {
+  const loadRooms = () => {
     const token = localStorage.getItem("jwt_token")
     if (!token) return
 
@@ -43,6 +43,10 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
         )
         setRooms(sorted)
       })
+  }
+
+  useEffect(() => {
+    loadRooms()
   }, [httpApiUrl])
 
   const currentRoomIdRef = useRef<string | null>(null)
@@ -58,17 +62,14 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
     onSelectRoom(id, name, isGroup)
   }
 
-  // WebSocket通知でルーム更新（未読 + 最終メッセージ）
   useEffect(() => {
     const token = localStorage.getItem("jwt_token")
     const socket = new WebSocket(`${wsUrl}/ws-notify?token=${token}`)
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data)
-    
-      // ✅ 表示中のルームに対しては既読処理を送る
+
       if (data.room_id === currentRoomIdRef.current) {
-        const token = localStorage.getItem("jwt_token")
         fetch(`${import.meta.env.VITE_API_URL}/rooms/${data.room_id}/read`, {
           method: "POST",
           headers: {
@@ -76,7 +77,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
           },
         })
       }
-    
+
       setRooms((prevRooms) => {
         const updatedRooms = prevRooms.map((room) =>
           room.room_id === data.room_id
@@ -93,10 +94,10 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
               }
             : room
         )
-    
+
         const movedToTop = updatedRooms.find((r) => r.room_id === data.room_id)
         const others = updatedRooms.filter((r) => r.room_id !== data.room_id)
-    
+
         return movedToTop ? [movedToTop, ...others] : updatedRooms
       })
     }
@@ -129,6 +130,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
     const data = await res.json()
     if (res.ok && data.room_id) {
+      loadRooms()
       handleSelectRoom(data.room_id, userName, false)
       setSelectedUserIds([])
       setShowGroupCreator(false)
@@ -161,6 +163,7 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
 
     const data = await res.json()
     if (res.ok && data.room_id) {
+      loadRooms()
       handleSelectRoom(data.room_id, data.display_name || "新しいグループ", true)
       setSelectedUserIds([])
       setShowGroupCreator(false)
@@ -170,7 +173,8 @@ export default function Sidebar({ onSelectRoom, userId }: SidebarProps) {
   }
 
   return (
-    <aside className="w-full h-screen bg-gray-100 p-4 overflow-y-auto">
+    <aside className="relative w-full h-screen bg-gray-100 p-4 overflow-y-auto">
+
       {showGroupCreator ? (
         <>
           <h3 className="text-lg font-bold mb-4">新規グループ作成</h3>
